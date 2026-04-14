@@ -6,6 +6,8 @@ db.query('SELECT 1')
     process.exit(0);
   })
   .catch(err => {
-    console.error('❌ Database connection failed:', err.message);
+    console.error('❌ Database connection failed:');
+    console.error('   Code:', err.code);
+    console.error('   Message:', err.message);
     process.exit(1);
   });
