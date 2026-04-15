@@ -12,7 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 
 // DB check (important)
-const db = require('./db');
+const db = require('./config/db');
 db.getConnection()
   .then(conn => {
     console.log('MySQL Connected');
