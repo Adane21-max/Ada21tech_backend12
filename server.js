@@ -11,19 +11,23 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use('/uploads', express.static('uploads'));
 
-// DB check (important)
+// DB
 const db = require('./config/db');
+
+// Safe DB check
 db.getConnection()
   .then(conn => {
     console.log('MySQL Connected');
     conn.release();
   })
   .catch(err => {
-    console.error('MySQL Connection Failed:', err);
+    console.error('MySQL Connection Failed:', err.message);
   });
 
-// Routes
-const authRoutes = require('./routes/auth.js');
+// =====================
+// ROUTES
+// =====================
+const authRoutes = require('./routes/auth');
 const subjectRoutes = require('./routes/subjects');
 const questionRoutes = require('./routes/questions');
 const freeTrialRoutes = require('./routes/freeTrial');
@@ -43,16 +47,49 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/question-types', questionTypeRoutes);
 app.use('/api/attempts', attemptRoutes);
 
-// Home route
+// =====================
+// TEST ROUTE
+// =====================
 app.get('/', (req, res) => {
   res.send('Ada21Tech API is running...');
 });
 
-// 404 handler
+// =====================
+// INIT DB (IMPORTANT FIX)
+// =====================
+app.get('/init-db', async (req, res) => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(100) UNIQUE,
+        password VARCHAR(255),
+        role VARCHAR(50) DEFAULT 'student'
+      )
+    `);
+
+    await db.query(`
+      INSERT IGNORE INTO users (username, password, role)
+      VALUES ('admin', '123456', 'admin')
+    `);
+
+    res.send('Database initialized successfully');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('DB init failed');
+  }
+});
+
+// =====================
+// 404 HANDLER
+// =====================
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
+// =====================
+// START SERVER
+// =====================
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
