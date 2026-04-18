@@ -14,7 +14,7 @@ app.use('/uploads', express.static('uploads'));
 // DB
 const db = require('./config/db');
 
-// DB connection test
+// Safe DB check
 db.getConnection()
   .then(conn => {
     console.log('MySQL Connected');
@@ -24,50 +24,67 @@ db.getConnection()
     console.error('MySQL Connection Failed:', err.message);
   });
 
+// =====================
 // ROUTES
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/subjects', require('./routes/subjects'));
-app.use('/api/questions', require('./routes/questions'));
-app.use('/api/free-trial', require('./routes/freeTrial'));
-app.use('/api/announcements', require('./routes/announcements'));
-app.use('/api/students', require('./routes/students'));
-app.use('/api/payments', require('./routes/payments'));
-app.use('/api/question-types', require('./routes/questionTypes'));
-app.use('/api/attempts', require('./routes/attempts'));
+// =====================
+const authRoutes = require('./routes/auth');
+const subjectRoutes = require('./routes/subjects');
+const questionRoutes = require('./routes/questions');
+const freeTrialRoutes = require('./routes/freeTrial');
+const announcementRoutes = require('./routes/announcements');
+const studentRoutes = require('./routes/students');
+const paymentRoutes = require('./routes/payments');
+const questionTypeRoutes = require('./routes/questionTypes');
+const attemptRoutes = require('./routes/attempts');
 
+app.use('/api/auth', authRoutes);
+app.use('/api/subjects', subjectRoutes);
+app.use('/api/questions', questionRoutes);
+app.use('/api/free-trial', freeTrialRoutes);
+app.use('/api/announcements', announcementRoutes);
+app.use('/api/students', studentRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/question-types', questionTypeRoutes);
+app.use('/api/attempts', attemptRoutes);
+
+// =====================
 // HEALTH CHECK
+// =====================
 app.get('/', (req, res) => {
   res.send('Ada21Tech API is running...');
 });
 
-// INIT DATABASE (RUN ONCE)
+// =====================
+// INIT DB (SAFE - ONLY FIRST TIME)
+// =====================
 app.get('/init-db', async (req, res) => {
   try {
     await db.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(100) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        role ENUM('admin','student') DEFAULT 'student',
-        grade VARCHAR(20),
-        status ENUM('active','pending','rejected') DEFAULT 'active',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        username VARCHAR(100) UNIQUE,
+        password VARCHAR(255),
+        role VARCHAR(50) DEFAULT 'student'
       )
     `);
 
-    res.send('Database initialized');
+    res.send('Users table ready');
   } catch (err) {
     console.error(err);
     res.status(500).send('DB init failed');
   }
 });
 
-// 404
+// =====================
+// 404 HANDLER
+// =====================
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
+// =====================
 // START SERVER
+// =====================
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
