@@ -1,20 +1,22 @@
 ﻿const mysql = require('mysql2');
 
+// 从环境变量读取配置，如果缺失则立即报错退出
 const host = process.env.DB_HOST;
 const port = process.env.DB_PORT;
 const user = process.env.DB_USER;
 const password = process.env.DB_PASSWORD;
-const database = 'test';   // <-- CHANGE TO THE CORRECT DATABASE NAME
+const database = process.env.DB_NAME;   // 必须从环境变量读取
 
-console.log('🔄 Attempting MySQL connection (TiDB):');
-console.log(`   Host: ${host}`);
-console.log(`   Port: ${port}`);
-console.log(`   User: ${user}`);
-console.log(`   Database: ${database}`);
-console.log(`   Password: ${password ? '***' : 'NOT SET'}`);
+console.log('🔄 Attempting MySQL connection (TiDB) - ENV CHECK:');
+console.log('   DB_HOST:', host || 'MISSING');
+console.log('   DB_PORT:', port || 'MISSING');
+console.log('   DB_USER:', user || 'MISSING');
+console.log('   DB_NAME:', database || 'MISSING');
+console.log('   DB_PASSWORD:', password ? '***' : 'MISSING');
 
-if (!host || !user || !password) {
-  console.error('❌ Missing required database environment variables.');
+if (!host || !user || !password || !database) {
+  console.error('❌ FATAL: Missing required database environment variables.');
+  console.error('   Required: DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME');
   process.exit(1);
 }
 
