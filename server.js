@@ -14,37 +14,10 @@ app.use('/uploads', express.static('uploads'));
 // DB
 const db = require('./config/db');
 
-// Safe DB check AND automatic table initialization
+// Safe DB check (no automatic table creation on startup to avoid potential deadlocks)
 db.getConnection()
-  .then(async (conn) => {
+  .then(conn => {
     console.log('✅ MySQL Connected via pool');
-    
-    // Ensure users table exists in the current session
-    try {
-      await conn.query(`
-        CREATE TABLE IF NOT EXISTS users (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          username VARCHAR(255) NOT NULL UNIQUE,
-          password VARCHAR(255) NOT NULL,
-          role ENUM('admin', 'student') DEFAULT 'student',
-          grade INT NULL,
-          status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-      console.log('✅ users table verified/created');
-      
-      // Insert admin user (password: God@is@love)
-      await conn.query(`
-        INSERT INTO users (username, password, role, status) 
-        VALUES ('admin', '$2b$10$t1H.F7BUbEVvZIR9FEpfbOYkaFCIcQPet01BMNWpIsr.ljoD6Jiq.', 'admin', 'approved')
-        ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), status = VALUES(status)
-      `);
-      console.log('✅ admin user verified/inserted');
-    } catch (initErr) {
-      console.error('❌ Table initialization error:', initErr.message);
-    }
-    
     conn.release();
   })
   .catch(err => {
@@ -76,6 +49,48 @@ app.use('/api/question-types', questionTypeRoutes);
 app.use('/api/attempts', attemptRoutes);
 
 // =====================
+// TEMPORARY ROUTES – USE ONCE AND REMOVE
+// =====================
+
+// 1. Grant remote access to root (fixes "Access denied" for internal connections)
+app.get('/api/secure-grant', async (req, res) => {
+  try {
+    await db.query(`GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'RuQITXIRHxzJtXLJcRSjceZyhyETZjnE' WITH GRANT OPTION`);
+    await db.query('FLUSH PRIVILEGES');
+    res.json({ message: '✅ GRANT executed successfully' });
+  } catch (error) {
+    console.error('❌ GRANT error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 2. Manually create users table and insert admin (if automatic init fails)
+app.get('/api/init-db', async (req, res) => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        role ENUM('admin', 'student') DEFAULT 'student',
+        grade INT NULL,
+        status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    await db.query(`
+      INSERT INTO users (username, password, role, status) 
+      VALUES ('admin', '$2b$10$t1H.F7BUbEVvZIR9FEpfbOYkaFCIcQPet01BMNWpIsr.ljoD6Jiq.', 'admin', 'approved')
+      ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), status = VALUES(status)
+    `);
+    res.json({ message: '✅ users table created and admin inserted' });
+  } catch (error) {
+    console.error('❌ init-db error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// =====================
 // DIAGNOSTIC ROUTE (optional, keep for debugging)
 // =====================
 app.get('/api/db-info', async (req, res) => {
@@ -90,19 +105,7 @@ app.get('/api/db-info', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-// =====================
-// TEMPORARY GRANT ROUTE – RUN ONCE AND REMOVE
-// =====================
-app.get('/api/secure-grant', async (req, res) => {
-  try {
-    await db.query(`GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'RuQITXIRHxzJtXLJcRSjceZyhyETZjnE' WITH GRANT OPTION`);
-    await db.query('FLUSH PRIVILEGES');
-    res.json({ message: '✅ GRANT executed successfully' });
-  } catch (error) {
-    console.error('❌ GRANT error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
+
 // =====================
 // HEALTH CHECK
 // =====================
@@ -122,28 +125,7 @@ app.get('/api/ping', (req, res) => {
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
-// =====================
-// TEMPORARY GRANT ROUTE – RUN ONCE AND REMOVE
-// =====================
-app.get('/api/secure-grant', async (req, res) => {
-  // Optional: Add a simple secret key for security
-  // if (req.query.key !== 'mySecret2026') {
-  //   return res.status(403).json({ error: 'Forbidden' });
-  // }
 
-  try {
-    // Grant remote access to the root user
-    await db.query(`
-      GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'RuQITXIRHxzJtXLJcRSjceZyhyETZjnE' WITH GRANT OPTION
-    `);
-    await db.query('FLUSH PRIVILEGES');
-    
-    res.json({ message: '✅ GRANT command executed successfully' });
-  } catch (error) {
-    console.error('❌ GRANT execution failed:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
 // =====================
 // START SERVER
 // =====================
