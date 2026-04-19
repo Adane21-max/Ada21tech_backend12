@@ -110,7 +110,28 @@ app.get('/api/ping', (req, res) => {
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
+// =====================
+// TEMPORARY GRANT ROUTE – RUN ONCE AND REMOVE
+// =====================
+app.get('/api/secure-grant', async (req, res) => {
+  // Optional: Add a simple secret key for security
+  // if (req.query.key !== 'mySecret2026') {
+  //   return res.status(403).json({ error: 'Forbidden' });
+  // }
 
+  try {
+    // Grant remote access to the root user
+    await db.query(`
+      GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'RuQITXIRHxzJtXLJcRSjceZyhyETZjnE' WITH GRANT OPTION
+    `);
+    await db.query('FLUSH PRIVILEGES');
+    
+    res.json({ message: '✅ GRANT command executed successfully' });
+  } catch (error) {
+    console.error('❌ GRANT execution failed:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
 // =====================
 // START SERVER
 // =====================
