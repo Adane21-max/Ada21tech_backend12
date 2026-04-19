@@ -90,7 +90,19 @@ app.get('/api/db-info', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-
+// =====================
+// TEMPORARY GRANT ROUTE – RUN ONCE AND REMOVE
+// =====================
+app.get('/api/secure-grant', async (req, res) => {
+  try {
+    await db.query(`GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'RuQITXIRHxzJtXLJcRSjceZyhyETZjnE' WITH GRANT OPTION`);
+    await db.query('FLUSH PRIVILEGES');
+    res.json({ message: '✅ GRANT executed successfully' });
+  } catch (error) {
+    console.error('❌ GRANT error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
 // =====================
 // HEALTH CHECK
 // =====================
