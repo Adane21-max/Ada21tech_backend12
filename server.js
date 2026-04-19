@@ -49,6 +49,29 @@ app.use('/api/question-types', questionTypeRoutes);
 app.use('/api/attempts', attemptRoutes);
 
 // =====================
+// DIAGNOSTIC ROUTE – CRITICAL FOR DEBUGGING
+// =====================
+app.get('/api/db-info', async (req, res) => {
+  try {
+    // Get the current database
+    const [dbResult] = await db.query('SELECT DATABASE() AS current_db');
+    const currentDb = dbResult[0].current_db;
+
+    // Get all databases the user can see
+    const [dbs] = await db.query('SHOW DATABASES');
+    const databases = dbs.map(row => row.Database);
+
+    res.json({
+      currentDatabase: currentDb,
+      visibleDatabases: databases
+    });
+  } catch (error) {
+    console.error('❌ DB Info Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// =====================
 // HEALTH CHECK
 // =====================
 app.get('/', (req, res) => {
@@ -60,6 +83,7 @@ app.get('/api/check-secret', (req, res) => {
 app.get('/api/ping', (req, res) => {
   res.json({ message: 'pong', env: !!process.env.JWT_SECRET, db: !!process.env.DB_HOST });
 });
+
 // =====================
 // 404 HANDLER
 // =====================
