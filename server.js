@@ -14,7 +14,10 @@ app.use('/uploads', express.static('uploads'));
 // DB
 const db = require('./config/db');
 
-// Safe DB check (no automatic table creation on startup to avoid potential deadlocks)
+// =====================
+// TEMPORARILY DISABLED – WILL RESTORE AFTER GRANT
+// =====================
+/*
 db.getConnection()
   .then(conn => {
     console.log('✅ MySQL Connected via pool');
@@ -22,8 +25,8 @@ db.getConnection()
   })
   .catch(err => {
     console.error('❌ MySQL Connection Failed:', err.message);
-    // Don't exit – allow server to start so we can see logs
   });
+*/
 
 // =====================
 // ROUTES
@@ -52,7 +55,7 @@ app.use('/api/attempts', attemptRoutes);
 // TEMPORARY ROUTES – USE ONCE AND REMOVE
 // =====================
 
-// 1. Grant remote access to root (fixes "Access denied" for internal connections)
+// 1. Grant remote access to root
 app.get('/api/secure-grant', async (req, res) => {
   try {
     await db.query(`GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'RuQITXIRHxzJtXLJcRSjceZyhyETZjnE' WITH GRANT OPTION`);
@@ -64,7 +67,7 @@ app.get('/api/secure-grant', async (req, res) => {
   }
 });
 
-// 2. Manually create users table and insert admin (if automatic init fails)
+// 2. Manually create users table and insert admin
 app.get('/api/init-db', async (req, res) => {
   try {
     await db.query(`
@@ -86,22 +89,6 @@ app.get('/api/init-db', async (req, res) => {
     res.json({ message: '✅ users table created and admin inserted' });
   } catch (error) {
     console.error('❌ init-db error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// =====================
-// DIAGNOSTIC ROUTE (optional, keep for debugging)
-// =====================
-app.get('/api/db-info', async (req, res) => {
-  try {
-    const [dbResult] = await db.query('SELECT DATABASE() AS current_db');
-    const currentDb = dbResult[0].current_db;
-    const [dbs] = await db.query('SHOW DATABASES');
-    const databases = dbs.map(row => row.Database);
-    res.json({ currentDatabase: currentDb, visibleDatabases: databases });
-  } catch (error) {
-    console.error('❌ DB Info Error:', error.message);
     res.status(500).json({ error: error.message });
   }
 });
