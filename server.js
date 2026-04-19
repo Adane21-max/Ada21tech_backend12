@@ -15,18 +15,133 @@ app.use('/uploads', express.static('uploads'));
 const db = require('./config/db');
 
 // =====================
-// TEMPORARILY DISABLED – WILL RESTORE AFTER GRANT
+// AUTO-INITIALIZE ALL TABLES ON STARTUP
 // =====================
-/*
-db.getConnection()
-  .then(conn => {
-    console.log('✅ MySQL Connected via pool');
-    conn.release();
-  })
-  .catch(err => {
-    console.error('❌ MySQL Connection Failed:', err.message);
-  });
-*/
+async function initializeTables() {
+  try {
+    // Subjects table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS subjects (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        grade INT NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ subjects table ready');
+
+    // Question types table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS question_types (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        grade INT NOT NULL,
+        subject_id INT NOT NULL,
+        total_time INT DEFAULT NULL,
+        is_visible BOOLEAN DEFAULT TRUE,
+        start_date DATETIME NULL,
+        end_date DATETIME NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('✅ question_types table ready');
+
+    // Questions table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS questions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        grade INT NOT NULL,
+        level VARCHAR(20),
+        type_id INT NOT NULL,
+        question TEXT NOT NULL,
+        optionA VARCHAR(255) NOT NULL,
+        optionB VARCHAR(255) NOT NULL,
+        optionC VARCHAR(255) NOT NULL,
+        optionD VARCHAR(255) NOT NULL,
+        correct_answer CHAR(1) NOT NULL,
+        explanation TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (type_id) REFERENCES question_types(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('✅ questions table ready');
+
+    // Free trial questions
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS free_trial_questions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        grade INT NOT NULL,
+        subject VARCHAR(100) NOT NULL,
+        question TEXT NOT NULL,
+        optionA VARCHAR(255) NOT NULL,
+        optionB VARCHAR(255) NOT NULL,
+        optionC VARCHAR(255) NOT NULL,
+        optionD VARCHAR(255) NOT NULL,
+        correct_answer CHAR(1) NOT NULL,
+        explanation TEXT,
+        time_limit INT DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ free_trial_questions table ready');
+
+    // Announcements
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS announcements (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(200) NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP NULL
+      )
+    `);
+    console.log('✅ announcements table ready');
+
+    // Payments
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS payments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT NOT NULL,
+        receipt_image VARCHAR(255) NOT NULL,
+        status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+        reason VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('✅ payments table ready');
+
+    // Quiz attempts
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS quiz_attempts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT NOT NULL,
+        type_id INT NOT NULL,
+        score INT,
+        total_questions INT,
+        time_taken INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (type_id) REFERENCES question_types(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('✅ quiz_attempts table ready');
+
+    // Ensure admin user exists
+    await db.query(`
+      INSERT INTO users (username, password, role, status) 
+      VALUES ('admin', '$2b$10$t1H.F7BUbEVvZIR9FEpfbOYkaFCIcQPet01BMNWpIsr.ljoD6Jiq.', 'admin', 'approved')
+      ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), status = VALUES(status)
+    `);
+    console.log('✅ admin user verified');
+  } catch (err) {
+    console.error('❌ Table initialization error:', err.message);
+  }
+}
+
+// Run table initialization on startup
+initializeTables();
 
 // =====================
 // ROUTES
@@ -50,48 +165,6 @@ app.use('/api/students', studentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/question-types', questionTypeRoutes);
 app.use('/api/attempts', attemptRoutes);
-
-// =====================
-// TEMPORARY ROUTES – USE ONCE AND REMOVE
-// =====================
-
-// 1. Grant remote access to root
-app.get('/api/secure-grant', async (req, res) => {
-  try {
-    await db.query(`GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY 'RuQITXIRHxzJtXLJcRSjceZyhyETZjnE' WITH GRANT OPTION`);
-    await db.query('FLUSH PRIVILEGES');
-    res.json({ message: '✅ GRANT executed successfully' });
-  } catch (error) {
-    console.error('❌ GRANT error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 2. Manually create users table and insert admin
-app.get('/api/init-db', async (req, res) => {
-  try {
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(255) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL,
-        role ENUM('admin', 'student') DEFAULT 'student',
-        grade INT NULL,
-        status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    await db.query(`
-      INSERT INTO users (username, password, role, status) 
-      VALUES ('admin', '$2b$10$t1H.F7BUbEVvZIR9FEpfbOYkaFCIcQPet01BMNWpIsr.ljoD6Jiq.', 'admin', 'approved')
-      ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), status = VALUES(status)
-    `);
-    res.json({ message: '✅ users table created and admin inserted' });
-  } catch (error) {
-    console.error('❌ init-db error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // =====================
 // HEALTH CHECK
