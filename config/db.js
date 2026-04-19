@@ -1,23 +1,21 @@
 ﻿const mysql = require('mysql2');
 
-// 强制从环境变量读取，不留任何回退
+// Hardcode the correct database name
 const host = process.env.DB_HOST;
 const port = process.env.DB_PORT;
 const user = process.env.DB_USER;
 const password = process.env.DB_PASSWORD;
-const database = process.env.DB_NAME;
+const database = 'test';   // <-- FORCE test
 
-console.log('🔄 Attempting MySQL connection (TiDB) - ENV CHECK:');
-console.log('   DB_HOST:', host || '❌ MISSING');
-console.log('   DB_PORT:', port || '❌ MISSING');
-console.log('   DB_USER:', user || '❌ MISSING');
-console.log('   DB_NAME:', database || '❌ MISSING');
-console.log('   DB_PASSWORD:', password ? '***' : '❌ MISSING');
+console.log('🔄 Attempting MySQL connection (TiDB):');
+console.log(`   Host: ${host}`);
+console.log(`   Port: ${port}`);
+console.log(`   User: ${user}`);
+console.log(`   Database: ${database}`);
+console.log(`   Password: ${password ? '***' : 'NOT SET'}`);
 
-// 如果任何必要变量缺失，立即退出并报错
-if (!host || !user || !password || !database) {
-  console.error('❌ FATAL: Missing required database environment variables.');
-  console.error('   Required: DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME');
+if (!host || !user || !password) {
+  console.error('❌ Missing required database environment variables.');
   process.exit(1);
 }
 
@@ -33,15 +31,24 @@ const pool = mysql.createPool({
   ssl: { rejectUnauthorized: false }
 });
 
+// Test connection and list tables
 pool.getConnection((err, connection) => {
   if (err) {
-    console.error('❌ MySQL Connection Failed:');
-    console.error('   Code:', err.code);
-    console.error('   Message:', err.message);
-  } else {
-    console.log('✅ MySQL Connected successfully (TiDB)');
-    connection.release();
+    console.error('❌ MySQL Connection Failed:', err.message);
+    return;
   }
+  console.log('✅ MySQL Connected successfully');
+  
+  // Query to list tables
+  connection.query('SHOW TABLES', (err2, results) => {
+    if (err2) {
+      console.error('❌ SHOW TABLES Error:', err2.message);
+    } else {
+      const tables = results.map(row => Object.values(row)[0]);
+      console.log('📋 Tables in database:', tables.join(', '));
+    }
+    connection.release();
+  });
 });
 
 module.exports = pool.promise();
