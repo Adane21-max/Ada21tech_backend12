@@ -1,18 +1,23 @@
 ﻿const mysql = require('mysql2');
 
-// Railway automatically injects MYSQL* variables when linked to a MySQL service
-const host = process.env.MYSQLHOST || process.env.DB_HOST;
-const port = process.env.MYSQLPORT || process.env.DB_PORT || 3306;
-const user = process.env.MYSQLUSER || process.env.DB_USER;
-const password = process.env.MYSQLPASSWORD || process.env.DB_PASSWORD;
-const database = process.env.MYSQLDATABASE || process.env.DB_NAME || 'railway';
+// Hardcode the correct database name to eliminate any ambiguity
+const host = process.env.DB_HOST;
+const port = process.env.DB_PORT;
+const user = process.env.DB_USER;
+const password = process.env.DB_PASSWORD;
+const database = 'defaultdb';   // <-- FORCE defaultdb
 
-console.log('🔄 Attempting MySQL connection (Railway Internal):');
+console.log('🔄 Attempting MySQL connection (Aiven):');
 console.log(`   Host: ${host}`);
 console.log(`   Port: ${port}`);
 console.log(`   User: ${user}`);
 console.log(`   Database: ${database}`);
 console.log(`   Password: ${password ? '***' : 'NOT SET'}`);
+
+if (!host || !user || !password) {
+  console.error('❌ Missing required database environment variables.');
+  process.exit(1);
+}
 
 const pool = mysql.createPool({
   host: host,
@@ -22,7 +27,8 @@ const pool = mysql.createPool({
   database: database,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  ssl: { rejectUnauthorized: false }
 });
 
 pool.getConnection((err, connection) => {
