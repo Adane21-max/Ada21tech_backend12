@@ -14,10 +14,37 @@ app.use('/uploads', express.static('uploads'));
 // DB
 const db = require('./config/db');
 
-// Safe DB check
+// Safe DB check AND automatic table initialization
 db.getConnection()
-  .then(conn => {
+  .then(async (conn) => {
     console.log('✅ MySQL Connected via pool');
+    
+    // Ensure users table exists in the current session
+    try {
+      await conn.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          username VARCHAR(255) NOT NULL UNIQUE,
+          password VARCHAR(255) NOT NULL,
+          role ENUM('admin', 'student') DEFAULT 'student',
+          grade INT NULL,
+          status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ users table verified/created');
+      
+      // Insert admin user (password: God@is@love)
+      await conn.query(`
+        INSERT INTO users (username, password, role, status) 
+        VALUES ('admin', '$2b$10$t1H.F7BUbEVvZIR9FEpfbOYkaFCIcQPet01BMNWpIsr.ljoD6Jiq.', 'admin', 'approved')
+        ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), status = VALUES(status)
+      `);
+      console.log('✅ admin user verified/inserted');
+    } catch (initErr) {
+      console.error('❌ Table initialization error:', initErr.message);
+    }
+    
     conn.release();
   })
   .catch(err => {
@@ -49,54 +76,15 @@ app.use('/api/question-types', questionTypeRoutes);
 app.use('/api/attempts', attemptRoutes);
 
 // =====================
-// TEMPORARY DATABASE INITIALIZATION
-// =====================
-app.get('/api/init-db', async (req, res) => {
-  try {
-    // Create users table
-    await db.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(255) NOT NULL UNIQUE,
-        password VARCHAR(255) NOT NULL,
-        role ENUM('admin', 'student') DEFAULT 'student',
-        grade INT NULL,
-        status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Insert admin user (password: God@is@love)
-    await db.query(`
-      INSERT INTO users (username, password, role, status) 
-      VALUES ('admin', '$2b$10$t1H.F7BUbEVvZIR9FEpfbOYkaFCIcQPet01BMNWpIsr.ljoD6Jiq.', 'admin', 'approved')
-      ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), status = VALUES(status)
-    `);
-
-    res.json({ message: '✅ users table created and admin inserted' });
-  } catch (error) {
-    console.error('❌ init-db error:', error.message);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// =====================
-// DIAGNOSTIC ROUTE – CRITICAL FOR DEBUGGING
+// DIAGNOSTIC ROUTE (optional, keep for debugging)
 // =====================
 app.get('/api/db-info', async (req, res) => {
   try {
-    // Get the current database
     const [dbResult] = await db.query('SELECT DATABASE() AS current_db');
     const currentDb = dbResult[0].current_db;
-
-    // Get all databases the user can see
     const [dbs] = await db.query('SHOW DATABASES');
     const databases = dbs.map(row => row.Database);
-
-    res.json({
-      currentDatabase: currentDb,
-      visibleDatabases: databases
-    });
+    res.json({ currentDatabase: currentDb, visibleDatabases: databases });
   } catch (error) {
     console.error('❌ DB Info Error:', error.message);
     res.status(500).json({ error: error.message });
@@ -113,7 +101,7 @@ app.get('/api/check-secret', (req, res) => {
   res.json({ secret: process.env.JWT_SECRET ? 'SET' : 'MISSING' });
 });
 app.get('/api/ping', (req, res) => {
-  res.json({ message: 'pong', env: !!process.env.JWT_SECRET, db: !!process.env.DB_HOST });
+  res.json({ message: 'pong', env: !!process.env.JWT_SECRET, db: !!process.env.MYSQLHOST });
 });
 
 // =====================
