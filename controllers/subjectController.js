@@ -1,7 +1,5 @@
-// Subject Controller 
 const db = require('../config/db');
 
-// Admin: Create subject
 exports.createSubject = async (req, res) => {
   try {
     const { grade, level, name } = req.body;
@@ -14,12 +12,13 @@ exports.createSubject = async (req, res) => {
     );
     res.status(201).json({ message: 'Subject created', id: result.insertId });
   } catch (error) {
-    console.error(error);
+    console.error('❌ createSubject error:', error.message);
+    console.error('   SQL:', error.sql);
+    console.error('   Code:', error.code);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Get all subjects (admin) or filter by grade (student)
 exports.getSubjects = async (req, res) => {
   try {
     const { grade } = req.query;
@@ -32,12 +31,13 @@ exports.getSubjects = async (req, res) => {
     const [rows] = await db.query(query, params);
     res.json(rows);
   } catch (error) {
-    console.error(error);
+    console.error('❌ getSubjects error:', error.message);
+    console.error('   SQL:', error.sql);
+    console.error('   Code:', error.code);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Update subject
 exports.updateSubject = async (req, res) => {
   try {
     const { id } = req.params;
@@ -48,19 +48,22 @@ exports.updateSubject = async (req, res) => {
     );
     res.json({ message: 'Subject updated' });
   } catch (error) {
-    console.error(error);
+    console.error('❌ updateSubject error:', error.message);
+    console.error('   SQL:', error.sql);
+    console.error('   Code:', error.code);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Delete subject
 exports.deleteSubject = async (req, res) => {
   try {
     const { id } = req.params;
     await db.query('DELETE FROM subjects WHERE id = ?', [id]);
     res.json({ message: 'Subject deleted' });
   } catch (error) {
-    console.error(error);
+    console.error('❌ deleteSubject error:', error.message);
+    console.error('   SQL:', error.sql);
+    console.error('   Code:', error.code);
     res.status(500).json({ message: 'Server error' });
   }
 };
