@@ -23,9 +23,33 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
-  // No SSL needed for internal Railway networking
 });
 
+// Attempt to grant remote access immediately after pool creation
+pool.getConnection((err, connection) => {
+  if (err) {
+    console.error('❌ Initial connection failed:', err.message);
+    return;
+  }
+  console.log('✅ Initial connection successful');
+
+  // Grant privileges to root from any host
+  const grantSQL = `GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' IDENTIFIED BY ? WITH GRANT OPTION`;
+  connection.query(grantSQL, [password], (grantErr) => {
+    if (grantErr) {
+      console.error('⚠️ GRANT failed (may already exist):', grantErr.message);
+    } else {
+      console.log('✅ GRANT executed successfully');
+    }
+    connection.query('FLUSH PRIVILEGES', (flushErr) => {
+      if (flushErr) console.error('⚠️ FLUSH PRIVILEGES failed:', flushErr.message);
+      else console.log('✅ FLUSH PRIVILEGES executed');
+      connection.release();
+    });
+  });
+});
+
+// Regular connection test (this will be used by the app)
 pool.getConnection((err, connection) => {
   if (err) {
     console.error('❌ MySQL Connection Failed:', err.message);
