@@ -1,4 +1,4 @@
-﻿// Remove dotenv on Render – environment variables are injected directly
+﻿// Remove dotenv on Railway – environment variables are injected directly
 
 const express = require('express');
 const cors = require('cors');
@@ -47,6 +47,38 @@ app.use('/api/students', studentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/question-types', questionTypeRoutes);
 app.use('/api/attempts', attemptRoutes);
+
+// =====================
+// TEMPORARY DATABASE INITIALIZATION
+// =====================
+app.get('/api/init-db', async (req, res) => {
+  try {
+    // Create users table
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        role ENUM('admin', 'student') DEFAULT 'student',
+        grade INT NULL,
+        status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Insert admin user (password: God@is@love)
+    await db.query(`
+      INSERT INTO users (username, password, role, status) 
+      VALUES ('admin', '$2b$10$t1H.F7BUbEVvZIR9FEpfbOYkaFCIcQPet01BMNWpIsr.ljoD6Jiq.', 'admin', 'approved')
+      ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), status = VALUES(status)
+    `);
+
+    res.json({ message: '✅ users table created and admin inserted' });
+  } catch (error) {
+    console.error('❌ init-db error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // =====================
 // DIAGNOSTIC ROUTE – CRITICAL FOR DEBUGGING
