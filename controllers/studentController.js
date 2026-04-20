@@ -74,3 +74,37 @@ exports.getStudentsWithQuizTypeCount = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+// Delete a student and all related records (cascade)
+exports.deleteStudent = async (req, res) => {
+  const { id } = req.params;
+  const connection = await db.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    // Delete related records (adjust table names if different)
+    await connection.query('DELETE FROM payments WHERE student_id = ?', [id]);
+    await connection.query('DELETE FROM quiz_attempts WHERE student_id = ?', [id]);
+    // Add any other tables that reference user ID
+    
+    // Finally delete the user
+    const [result] = await connection.query(
+      "DELETE FROM users WHERE id = ? AND role = 'student'",
+      [id]
+    );
+    
+    await connection.commit();
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+    
+    res.json({ message: 'Student and all associated data deleted' });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Delete student error:', error);
+    res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
+  }
+};
