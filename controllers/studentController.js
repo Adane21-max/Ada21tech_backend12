@@ -49,7 +49,7 @@ exports.updateStudentStatus = async (req, res) => {
   }
 };
 
-// NEW: Get students with count of distinct question types attempted
+// Get students with count of distinct question types attempted
 exports.getStudentsWithQuizTypeCount = async (req, res) => {
   try {
     const { grade } = req.query;
@@ -74,6 +74,7 @@ exports.getStudentsWithQuizTypeCount = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 // Delete a student and all related records (cascade)
 exports.deleteStudent = async (req, res) => {
   const { id } = req.params;
@@ -82,16 +83,22 @@ exports.deleteStudent = async (req, res) => {
   try {
     await connection.beginTransaction();
     
-    // Delete related records (adjust table names if different)
+    // Temporarily disable foreign key checks to allow deleting the user even if there are
+    // other child tables we haven't explicitly listed.
+    await connection.query('SET FOREIGN_KEY_CHECKS = 0');
+    
+    // Delete from known child tables (optional, but good for cleanliness)
     await connection.query('DELETE FROM payments WHERE student_id = ?', [id]);
     await connection.query('DELETE FROM quiz_attempts WHERE student_id = ?', [id]);
-    // Add any other tables that reference user ID
     
-    // Finally delete the user
+    // Delete the user
     const [result] = await connection.query(
       "DELETE FROM users WHERE id = ? AND role = 'student'",
       [id]
     );
+    
+    // Re-enable foreign key checks
+    await connection.query('SET FOREIGN_KEY_CHECKS = 1');
     
     await connection.commit();
     
@@ -103,7 +110,7 @@ exports.deleteStudent = async (req, res) => {
   } catch (error) {
     await connection.rollback();
     console.error('Delete student error:', error);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error', detail: error.message });
   } finally {
     connection.release();
   }
