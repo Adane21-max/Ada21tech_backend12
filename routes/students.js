@@ -7,7 +7,7 @@ const {
   rejectStudent,
   updateStudentStatus,
   getStudentsWithQuizTypeCount,
-  deleteStudent   // ✅ import the new function
+  deleteStudent
 } = require('../controllers/studentController');
 
 router.get('/', authenticate, isAdmin, getAllStudents);
@@ -15,6 +15,6 @@ router.get('/with-quiz-types', authenticate, isAdmin, getStudentsWithQuizTypeCou
 router.put('/:id/approve', authenticate, isAdmin, approveStudent);
 router.put('/:id/reject', authenticate, isAdmin, rejectStudent);
 router.put('/:id/status', authenticate, isAdmin, updateStudentStatus);
-router.delete('/:id', authenticate, isAdmin, deleteStudent);   // ✅ NEW route
+router.delete('/:id', authenticate, isAdmin, deleteStudent);   // ✅ MUST EXIST
 
 module.exports = router;
