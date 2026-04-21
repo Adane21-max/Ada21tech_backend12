@@ -156,3 +156,79 @@ exports.deleteStudent = async (req, res) => {
     connection.release();
   }
 };
+
+// ✅ NEW: Get top 10 leaderboard for students
+exports.getLeaderboard = async (req, res) => {
+  try {
+    const { grade } = req.query;
+    
+    // Get all students (optionally filtered by grade)
+    let studentQuery = `
+      SELECT id, username, grade
+      FROM users
+      WHERE role = 'student'
+    `;
+    const params = [];
+    if (grade) {
+      studentQuery += ' AND grade = ?';
+      params.push(grade);
+    }
+    
+    const [students] = await db.query(studentQuery, params);
+    
+    const leaderboard = [];
+    
+    for (const student of students) {
+      // Count distinct subjects attempted
+      const [subjectCountResult] = await db.query(
+        `SELECT COUNT(DISTINCT qt.subject_id) AS subject_count
+         FROM quiz_attempts qa
+         JOIN question_types qt ON qa.type_id = qt.id
+         WHERE qa.student_id = ?`,
+        [student.id]
+      );
+      const subjectCount = subjectCountResult[0].subject_count || 0;
+      
+      // Skip students with no attempts
+      if (subjectCount === 0) continue;
+      
+      // Get subject averages
+      const [subjectAvgs] = await db.query(
+        `SELECT 
+           qt.subject_id,
+           AVG(qa.score / NULLIF(qa.total_questions, 0) * 100) AS subject_avg
+         FROM quiz_attempts qa
+         JOIN question_types qt ON qa.type_id = qt.id
+         WHERE qa.student_id = ?
+         GROUP BY qt.subject_id`,
+        [student.id]
+      );
+      
+      let totalSubjectAvgSum = 0;
+      subjectAvgs.forEach(row => {
+        if (row.subject_avg !== null) {
+          totalSubjectAvgSum += row.subject_avg;
+        }
+      });
+      
+      const overallAvg = totalSubjectAvgSum / subjectCount;
+      
+      leaderboard.push({
+        username: student.username,
+        grade: student.grade,
+        subject_count: subjectCount,
+        T: Math.round(totalSubjectAvgSum * 100) / 100,
+        Avg: Math.round(overallAvg * 100) / 100
+      });
+    }
+    
+    // Sort by Avg descending and take top 10
+    leaderboard.sort((a, b) => b.Avg - a.Avg);
+    const top10 = leaderboard.slice(0, 10);
+    
+    res.json(top10);
+  } catch (error) {
+    console.error('Error in getLeaderboard:', error);
+    res.status(500).json({ message: 'Server error', detail: error.message });
+  }
+};
