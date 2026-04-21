@@ -7,16 +7,16 @@ const {
   rejectStudent,
   updateStudentStatus,
   getStudentsWithQuizTypeCount,
-  deleteStudent
+  deleteStudent,
+  getLeaderboard   // ✅ import the new function
 } = require('../controllers/studentController');
 
 router.get('/', authenticate, isAdmin, getAllStudents);
 router.get('/with-quiz-types', authenticate, isAdmin, getStudentsWithQuizTypeCount);
+router.get('/leaderboard', authenticate, getLeaderboard);   // ✅ public for authenticated students
 router.put('/:id/approve', authenticate, isAdmin, approveStudent);
 router.put('/:id/reject', authenticate, isAdmin, rejectStudent);
 router.put('/:id/status', authenticate, isAdmin, updateStudentStatus);
 router.delete('/:id', authenticate, isAdmin, deleteStudent);
-// Public leaderboard route (authenticated students can access)
-router.get('/leaderboard', authenticate, getLeaderboard);
 
 module.exports = router;
