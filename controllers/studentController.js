@@ -1,6 +1,6 @@
 const db = require('../config/db');
 
-// Get all students (basic info only)
+// Get all students (basic info)
 exports.getAllStudents = async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -25,7 +25,7 @@ exports.approveStudent = async (req, res) => {
   }
 };
 
-// Reject a student (set to rejected/suspended)
+// Reject a student
 exports.rejectStudent = async (req, res) => {
   try {
     const { id } = req.params;
@@ -37,7 +37,7 @@ exports.rejectStudent = async (req, res) => {
   }
 };
 
-// Update student status (pending/approved/rejected)
+// Update student status
 exports.updateStudentStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -53,37 +53,57 @@ exports.updateStudentStatus = async (req, res) => {
   }
 };
 
-// Get students with detailed stats: quiz types taken, average score, total score
+// Get students with detailed stats (quiz types taken, T (sum), overall average)
 exports.getStudentsWithQuizTypeCount = async (req, res) => {
   try {
     const { grade } = req.query;
+    
     let query = `
-      SELECT u.id, u.username, u.grade, u.status, u.created_at,
-             COUNT(DISTINCT qa.type_id) AS quiz_types_taken,
-             COALESCE(AVG(qa.score), 0) AS average_score,
-             COALESCE(SUM(qa.score), 0) AS total_score
+      SELECT 
+        u.id, u.username, u.grade, u.status, u.created_at,
+        COALESCE(stats.quiz_types_taken, 0) AS quiz_types_taken,
+        COALESCE(stats.total_subject_avg_sum, 0) AS total_subject_avg_sum,
+        COALESCE(stats.overall_avg, 0) AS overall_avg
       FROM users u
-      LEFT JOIN quiz_attempts qa ON u.id = qa.student_id
+      LEFT JOIN (
+        SELECT 
+          student_id,
+          COUNT(DISTINCT type_id) AS quiz_types_taken,
+          SUM(subject_avg) AS total_subject_avg_sum,
+          AVG(subject_avg) AS overall_avg
+        FROM (
+          SELECT 
+            qa.student_id,
+            qt.subject_id,
+            AVG(qa.score / qa.total_questions * 100) AS subject_avg
+          FROM quiz_attempts qa
+          JOIN question_types qt ON qa.type_id = qt.id
+          GROUP BY qa.student_id, qt.subject_id
+        ) AS subject_averages
+        GROUP BY student_id
+      ) AS stats ON u.id = stats.student_id
       WHERE u.role = 'student'
     `;
+    
     const params = [];
     if (grade) {
       query += ' AND u.grade = ?';
       params.push(grade);
     }
-    query += ' GROUP BY u.id ORDER BY u.created_at DESC';
+    query += ' ORDER BY u.created_at DESC';
     
     const [rows] = await db.query(query, params);
     
-    // Round average_score to 2 decimal places for cleaner display
+    // Round values to 2 decimal places
     rows.forEach(row => {
-      row.average_score = Math.round(row.average_score * 100) / 100;
+      row.total_subject_avg_sum = Math.round(row.total_subject_avg_sum * 100) / 100;
+      row.overall_avg = Math.round(row.overall_avg * 100) / 100;
     });
     
     res.json(rows);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Error in getStudentsWithQuizTypeCount:', error);
+    res.status(500).json({ message: 'Server error', detail: error.message });
   }
 };
 
@@ -95,10 +115,10 @@ exports.deleteStudent = async (req, res) => {
   try {
     await connection.beginTransaction();
     
-    // Temporarily disable foreign key checks to safely delete the user
+    // Temporarily disable foreign key checks
     await connection.query('SET FOREIGN_KEY_CHECKS = 0');
     
-    // Delete child records to keep the database clean
+    // Delete child records
     await connection.query('DELETE FROM payments WHERE student_id = ?', [id]);
     await connection.query('DELETE FROM quiz_attempts WHERE student_id = ?', [id]);
     
