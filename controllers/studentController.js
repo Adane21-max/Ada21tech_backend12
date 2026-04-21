@@ -1,6 +1,6 @@
 const db = require('../config/db');
 
-// Get all students (basic info)
+// Get all students (basic info only)
 exports.getAllStudents = async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -25,7 +25,7 @@ exports.approveStudent = async (req, res) => {
   }
 };
 
-// Reject a student
+// Reject a student (set to rejected/suspended)
 exports.rejectStudent = async (req, res) => {
   try {
     const { id } = req.params;
@@ -37,7 +37,7 @@ exports.rejectStudent = async (req, res) => {
   }
 };
 
-// Update student status
+// Update student status (pending/approved/rejected)
 exports.updateStudentStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -53,54 +53,64 @@ exports.updateStudentStatus = async (req, res) => {
   }
 };
 
-// Get students with detailed stats (quiz types taken, T (sum), overall average)
+// Get students with detailed stats: quiz types taken, T (sum), overall average
 exports.getStudentsWithQuizTypeCount = async (req, res) => {
   try {
     const { grade } = req.query;
     
-    let query = `
-      SELECT 
-        u.id, u.username, u.grade, u.status, u.created_at,
-        COALESCE(stats.quiz_types_taken, 0) AS quiz_types_taken,
-        COALESCE(stats.total_subject_avg_sum, 0) AS total_subject_avg_sum,
-        COALESCE(stats.overall_avg, 0) AS overall_avg
-      FROM users u
-      LEFT JOIN (
-        SELECT 
-          student_id,
-          COUNT(DISTINCT type_id) AS quiz_types_taken,
-          SUM(subject_avg) AS total_subject_avg_sum,
-          AVG(subject_avg) AS overall_avg
-        FROM (
-          SELECT 
-            qa.student_id,
-            qt.subject_id,
-            AVG(qa.score / qa.total_questions * 100) AS subject_avg
-          FROM quiz_attempts qa
-          JOIN question_types qt ON qa.type_id = qt.id
-          GROUP BY qa.student_id, qt.subject_id
-        ) AS subject_averages
-        GROUP BY student_id
-      ) AS stats ON u.id = stats.student_id
-      WHERE u.role = 'student'
+    // First, get basic student info
+    let studentQuery = `
+      SELECT id, username, grade, status, created_at
+      FROM users
+      WHERE role = 'student'
     `;
-    
     const params = [];
     if (grade) {
-      query += ' AND u.grade = ?';
+      studentQuery += ' AND grade = ?';
       params.push(grade);
     }
-    query += ' ORDER BY u.created_at DESC';
+    studentQuery += ' ORDER BY created_at DESC';
     
-    const [rows] = await db.query(query, params);
+    const [students] = await db.query(studentQuery, params);
     
-    // Round values to 2 decimal places
-    rows.forEach(row => {
-      row.total_subject_avg_sum = Math.round(row.total_subject_avg_sum * 100) / 100;
-      row.overall_avg = Math.round(row.overall_avg * 100) / 100;
-    });
+    // For each student, get their stats individually (safe, avoids complex joins)
+    for (const student of students) {
+      // 1. Count distinct quiz types attempted
+      const [typeCount] = await db.query(
+        `SELECT COUNT(DISTINCT type_id) AS count FROM quiz_attempts WHERE student_id = ?`,
+        [student.id]
+      );
+      student.quiz_types_taken = typeCount[0].count || 0;
+      
+      // 2. Get average per subject
+      const [subjectAvgs] = await db.query(
+        `SELECT 
+           qt.subject_id,
+           AVG(qa.score / NULLIF(qa.total_questions, 0) * 100) AS subject_avg
+         FROM quiz_attempts qa
+         JOIN question_types qt ON qa.type_id = qt.id
+         WHERE qa.student_id = ?
+         GROUP BY qt.subject_id`,
+        [student.id]
+      );
+      
+      // 3. Calculate T (sum of subject averages) and overall average
+      let totalSubjectAvgSum = 0;
+      let subjectCount = 0;
+      subjectAvgs.forEach(row => {
+        if (row.subject_avg !== null) {
+          totalSubjectAvgSum += row.subject_avg;
+          subjectCount++;
+        }
+      });
+      
+      student.total_subject_avg_sum = Math.round(totalSubjectAvgSum * 100) / 100;
+      student.overall_avg = subjectCount > 0 
+        ? Math.round((totalSubjectAvgSum / subjectCount) * 100) / 100 
+        : 0;
+    }
     
-    res.json(rows);
+    res.json(students);
   } catch (error) {
     console.error('Error in getStudentsWithQuizTypeCount:', error);
     res.status(500).json({ message: 'Server error', detail: error.message });
