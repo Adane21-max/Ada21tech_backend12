@@ -1,5 +1,6 @@
 const db = require('../config/db');
 
+// Get all students (basic info only)
 exports.getAllStudents = async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -12,6 +13,7 @@ exports.getAllStudents = async (req, res) => {
   }
 };
 
+// Approve a student
 exports.approveStudent = async (req, res) => {
   try {
     const { id } = req.params;
@@ -23,6 +25,7 @@ exports.approveStudent = async (req, res) => {
   }
 };
 
+// Reject a student (set to rejected/suspended)
 exports.rejectStudent = async (req, res) => {
   try {
     const { id } = req.params;
@@ -34,6 +37,7 @@ exports.rejectStudent = async (req, res) => {
   }
 };
 
+// Update student status (pending/approved/rejected)
 exports.updateStudentStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -49,12 +53,15 @@ exports.updateStudentStatus = async (req, res) => {
   }
 };
 
+// Get students with detailed stats: quiz types taken, average score, total score
 exports.getStudentsWithQuizTypeCount = async (req, res) => {
   try {
     const { grade } = req.query;
     let query = `
       SELECT u.id, u.username, u.grade, u.status, u.created_at,
-             COUNT(DISTINCT qa.type_id) AS quiz_types_taken
+             COUNT(DISTINCT qa.type_id) AS quiz_types_taken,
+             COALESCE(AVG(qa.score), 0) AS average_score,
+             COALESCE(SUM(qa.score), 0) AS total_score
       FROM users u
       LEFT JOIN quiz_attempts qa ON u.id = qa.student_id
       WHERE u.role = 'student'
@@ -67,6 +74,12 @@ exports.getStudentsWithQuizTypeCount = async (req, res) => {
     query += ' GROUP BY u.id ORDER BY u.created_at DESC';
     
     const [rows] = await db.query(query, params);
+    
+    // Round average_score to 2 decimal places for cleaner display
+    rows.forEach(row => {
+      row.average_score = Math.round(row.average_score * 100) / 100;
+    });
+    
     res.json(rows);
   } catch (error) {
     console.error(error);
@@ -74,7 +87,7 @@ exports.getStudentsWithQuizTypeCount = async (req, res) => {
   }
 };
 
-// ✅ NEW: Delete student with cascade
+// Delete a student and all related records (cascade)
 exports.deleteStudent = async (req, res) => {
   const { id } = req.params;
   const connection = await db.getConnection();
