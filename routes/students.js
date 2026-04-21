@@ -16,5 +16,7 @@ router.put('/:id/approve', authenticate, isAdmin, approveStudent);
 router.put('/:id/reject', authenticate, isAdmin, rejectStudent);
 router.put('/:id/status', authenticate, isAdmin, updateStudentStatus);
 router.delete('/:id', authenticate, isAdmin, deleteStudent);
+// Public leaderboard route (authenticated students can access)
+router.get('/leaderboard', authenticate, getLeaderboard);
 
 module.exports = router;
