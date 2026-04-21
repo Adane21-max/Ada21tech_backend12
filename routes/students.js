@@ -15,6 +15,6 @@ router.get('/with-quiz-types', authenticate, isAdmin, getStudentsWithQuizTypeCou
 router.put('/:id/approve', authenticate, isAdmin, approveStudent);
 router.put('/:id/reject', authenticate, isAdmin, rejectStudent);
 router.put('/:id/status', authenticate, isAdmin, updateStudentStatus);
-router.delete('/:id', authenticate, isAdmin, deleteStudent);   // ✅ MUST EXIST
+router.delete('/:id', authenticate, isAdmin, deleteStudent);
 
 module.exports = router;
