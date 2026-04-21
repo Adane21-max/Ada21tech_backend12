@@ -49,7 +49,6 @@ exports.updateStudentStatus = async (req, res) => {
   }
 };
 
-// Get students with count of distinct question types attempted
 exports.getStudentsWithQuizTypeCount = async (req, res) => {
   try {
     const { grade } = req.query;
@@ -75,7 +74,7 @@ exports.getStudentsWithQuizTypeCount = async (req, res) => {
   }
 };
 
-// Delete a student and all related records (cascade)
+// ✅ NEW: Delete student with cascade
 exports.deleteStudent = async (req, res) => {
   const { id } = req.params;
   const connection = await db.getConnection();
@@ -83,11 +82,10 @@ exports.deleteStudent = async (req, res) => {
   try {
     await connection.beginTransaction();
     
-    // Temporarily disable foreign key checks to allow deleting the user even if there are
-    // other child tables we haven't explicitly listed.
+    // Temporarily disable foreign key checks to safely delete the user
     await connection.query('SET FOREIGN_KEY_CHECKS = 0');
     
-    // Delete from known child tables (optional, but good for cleanliness)
+    // Delete child records to keep the database clean
     await connection.query('DELETE FROM payments WHERE student_id = ?', [id]);
     await connection.query('DELETE FROM quiz_attempts WHERE student_id = ?', [id]);
     
