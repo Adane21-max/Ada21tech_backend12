@@ -10,7 +10,7 @@ exports.submitPayment = async (req, res) => {
       return res.status(400).json({ message: 'Payer name and transaction reference are required' });
     }
 
-    // Check if there is already a pending payment for this student
+    // Check if there's already a pending payment for this student
     const [existing] = await db.query(
       'SELECT id FROM payments WHERE student_id = ? AND status = ?',
       [student_id, 'pending']
@@ -32,7 +32,7 @@ exports.submitPayment = async (req, res) => {
   }
 };
 
-// Admin: Get all payments with student information
+// Admin: Get all payments with student info
 exports.getPayments = async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -67,7 +67,7 @@ exports.updatePaymentStatus = async (req, res) => {
       [status, reason || null, id]
     );
 
-    // If approved, update the student's status to 'approved'
+    // If approved, update student status to 'approved'
     if (status === 'approved') {
       const [payment] = await connection.query('SELECT student_id FROM payments WHERE id = ?', [id]);
       if (payment.length > 0) {
