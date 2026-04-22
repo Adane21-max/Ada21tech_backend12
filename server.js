@@ -113,6 +113,26 @@ async function initializeTables() {
     `);
     console.log('✅ payments table ready');
 
+    // 🔧 Ensure new columns exist (for existing tables)
+    const [columns] = await db.query("SHOW COLUMNS FROM payments LIKE 'payer_name'");
+    if (columns.length === 0) {
+      await db.query("ALTER TABLE payments ADD COLUMN payer_name VARCHAR(255) NOT NULL");
+      console.log('✅ Added payer_name column to payments');
+    }
+
+    const [txnCols] = await db.query("SHOW COLUMNS FROM payments LIKE 'transaction_ref'");
+    if (txnCols.length === 0) {
+      await db.query("ALTER TABLE payments ADD COLUMN transaction_ref VARCHAR(100) NOT NULL");
+      console.log('✅ Added transaction_ref column to payments');
+    }
+
+    // 🔥 CRITICAL: Remove deprecated receipt_image column if it still exists
+    const [receiptCol] = await db.query("SHOW COLUMNS FROM payments LIKE 'receipt_image'");
+    if (receiptCol.length > 0) {
+      await db.query("ALTER TABLE payments DROP COLUMN receipt_image");
+      console.log('✅ Dropped receipt_image column from payments');
+    }
+
     // Quiz attempts
     await db.query(`
       CREATE TABLE IF NOT EXISTS quiz_attempts (
@@ -128,19 +148,6 @@ async function initializeTables() {
       )
     `);
     console.log('✅ quiz_attempts table ready');
-
-    // 🔧 Ensure payments table has the new columns (if table already existed)
-    const [columns] = await db.query("SHOW COLUMNS FROM payments LIKE 'payer_name'");
-    if (columns.length === 0) {
-      await db.query("ALTER TABLE payments ADD COLUMN payer_name VARCHAR(255) NOT NULL");
-      console.log('✅ Added payer_name column to payments');
-    }
-
-    const [txnCols] = await db.query("SHOW COLUMNS FROM payments LIKE 'transaction_ref'");
-    if (txnCols.length === 0) {
-      await db.query("ALTER TABLE payments ADD COLUMN transaction_ref VARCHAR(100) NOT NULL");
-      console.log('✅ Added transaction_ref column to payments');
-    }
 
     // Ensure admin user exists
     await db.query(`
