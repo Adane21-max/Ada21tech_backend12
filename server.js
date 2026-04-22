@@ -1,4 +1,4 @@
-﻿// Remove dotenv on Railway – environment variables are injected directly
+// Remove dotenv on Railway – environment variables are injected directly
 
 const express = require('express');
 const cors = require('cors');
@@ -98,12 +98,13 @@ async function initializeTables() {
     `);
     console.log('✅ announcements table ready');
 
-    // Payments
+    // Payments – UPDATED with new columns
     await db.query(`
       CREATE TABLE IF NOT EXISTS payments (
         id INT AUTO_INCREMENT PRIMARY KEY,
         student_id INT NOT NULL,
-        receipt_image VARCHAR(255) NOT NULL,
+        payer_name VARCHAR(255) NOT NULL,
+        transaction_ref VARCHAR(100) NOT NULL,
         status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
         reason VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -127,6 +128,19 @@ async function initializeTables() {
       )
     `);
     console.log('✅ quiz_attempts table ready');
+
+    // 🔧 Ensure payments table has the new columns (if table already existed)
+    const [columns] = await db.query("SHOW COLUMNS FROM payments LIKE 'payer_name'");
+    if (columns.length === 0) {
+      await db.query("ALTER TABLE payments ADD COLUMN payer_name VARCHAR(255) NOT NULL");
+      console.log('✅ Added payer_name column to payments');
+    }
+
+    const [txnCols] = await db.query("SHOW COLUMNS FROM payments LIKE 'transaction_ref'");
+    if (txnCols.length === 0) {
+      await db.query("ALTER TABLE payments ADD COLUMN transaction_ref VARCHAR(100) NOT NULL");
+      console.log('✅ Added transaction_ref column to payments');
+    }
 
     // Ensure admin user exists
     await db.query(`
