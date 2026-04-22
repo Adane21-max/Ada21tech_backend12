@@ -3,6 +3,9 @@ const db = require('../config/db');
 // Student submits payment information (payer name + transaction reference)
 exports.submitPayment = async (req, res) => {
   try {
+    console.log('📥 Payment submit attempt');
+    console.log('   Student ID from token:', req.user?.id);
+    console.log('   Request body:', req.body);
     const student_id = req.user.id;
     const { payer_name, transaction_ref } = req.body;
 
