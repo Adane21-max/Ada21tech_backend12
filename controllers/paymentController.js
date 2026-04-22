@@ -1,66 +1,90 @@
 const db = require('../config/db');
 
-// 学生上传收据
-exports.uploadReceipt = async (req, res) => {
+// Student submits payment information (payer name + transaction reference)
+exports.submitPayment = async (req, res) => {
   try {
     const student_id = req.user.id;
-    const receipt_image = req.file?.filename;
-    if (!receipt_image) {
-      return res.status(400).json({ message: 'No file uploaded' });
+    const { payer_name, transaction_ref } = req.body;
+
+    if (!payer_name || !transaction_ref) {
+      return res.status(400).json({ message: 'Payer name and transaction reference are required' });
     }
-    await db.query(
-      'INSERT INTO payments (student_id, receipt_image) VALUES (?, ?)',
-      [student_id, receipt_image]
+
+    // Check if there is already a pending payment for this student
+    const [existing] = await db.query(
+      'SELECT id FROM payments WHERE student_id = ? AND status = ?',
+      [student_id, 'pending']
     );
-    res.status(201).json({ message: 'Receipt uploaded' });
+    if (existing.length > 0) {
+      return res.status(400).json({ message: 'You already have a pending payment request' });
+    }
+
+    // Insert the payment record
+    await db.query(
+      'INSERT INTO payments (student_id, payer_name, transaction_ref, status) VALUES (?, ?, ?, ?)',
+      [student_id, payer_name, transaction_ref, 'pending']
+    );
+
+    res.status(201).json({ message: 'Payment information submitted. Awaiting admin approval.' });
   } catch (error) {
-    console.error(error);
+    console.error('Submit payment error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// 管理员：获取所有支付记录（含学生姓名）
+// Admin: Get all payments with student information
 exports.getPayments = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT p.*, u.username 
+      `SELECT p.*, u.username, u.grade 
        FROM payments p 
        JOIN users u ON p.student_id = u.id 
        ORDER BY p.created_at DESC`
     );
     res.json(rows);
   } catch (error) {
-    console.error(error);
+    console.error('Get payments error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// 管理员：更新支付状态（批准/拒绝）
+// Admin: Approve or reject a payment
 exports.updatePaymentStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status, reason } = req.body;
-    if (!['approved', 'rejected'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
-    }
+  const { id } = req.params;
+  const { status, reason } = req.body;
 
-    // 更新支付状态
-    await db.query(
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ message: 'Invalid status' });
+  }
+
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    // Update payment status
+    await connection.query(
       'UPDATE payments SET status = ?, reason = ? WHERE id = ?',
       [status, reason || null, id]
     );
 
-    // 如果批准，同时将学生状态更新为 approved
+    // If approved, update the student's status to 'approved'
     if (status === 'approved') {
-      const [payment] = await db.query('SELECT student_id FROM payments WHERE id = ?', [id]);
+      const [payment] = await connection.query('SELECT student_id FROM payments WHERE id = ?', [id]);
       if (payment.length > 0) {
-        await db.query("UPDATE users SET status = 'approved' WHERE id = ?", [payment[0].student_id]);
+        await connection.query(
+          "UPDATE users SET status = 'approved' WHERE id = ? AND role = 'student'",
+          [payment[0].student_id]
+        );
       }
     }
 
-    res.json({ message: 'Payment updated' });
+    await connection.commit();
+    res.json({ message: `Payment ${status}` });
   } catch (error) {
-    console.error(error);
+    await connection.rollback();
+    console.error('Update payment error:', error);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    connection.release();
   }
 };
