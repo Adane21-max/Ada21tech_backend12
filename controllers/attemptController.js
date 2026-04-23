@@ -1,9 +1,9 @@
 const db = require('../config/db');
 
-// Save a quiz attempt (with duplicate check)
+// Save a quiz attempt (with duplicate check) – now stores student answers
 exports.saveAttempt = async (req, res) => {
   try {
-    const { type_id, score, total_questions, time_taken } = req.body;
+    const { type_id, score, total_questions, time_taken, answers } = req.body;
     const student_id = req.user.id;
 
     // Check if an attempt already exists for this student and quiz type
@@ -16,10 +16,13 @@ exports.saveAttempt = async (req, res) => {
       return res.status(400).json({ message: 'You have already taken this quiz.' });
     }
 
-    // Save the new attempt
+    // Convert answers object to JSON string (or null if not provided)
+    const answersJson = answers ? JSON.stringify(answers) : null;
+
+    // Save the new attempt including answers
     const [result] = await db.query(
-      'INSERT INTO quiz_attempts (student_id, type_id, score, total_questions, time_taken) VALUES (?, ?, ?, ?, ?)',
-      [student_id, type_id, score, total_questions, time_taken]
+      'INSERT INTO quiz_attempts (student_id, type_id, score, total_questions, time_taken, answers) VALUES (?, ?, ?, ?, ?, ?)',
+      [student_id, type_id, score, total_questions, time_taken, answersJson]
     );
 
     res.status(201).json({ message: 'Attempt saved', attemptId: result.insertId });
@@ -29,7 +32,7 @@ exports.saveAttempt = async (req, res) => {
   }
 };
 
-// Get all attempts for the logged-in student (summary) – MUST INCLUDE type_id
+// Get all attempts for the logged-in student (summary)
 exports.getStudentAttempts = async (req, res) => {
   try {
     const studentId = req.user.id;
@@ -50,7 +53,7 @@ exports.getStudentAttempts = async (req, res) => {
   }
 };
 
-// Get detailed attempt with questions for review
+// Get detailed attempt with questions and student answers for review
 exports.getAttemptDetails = async (req, res) => {
   try {
     const { id } = req.params;
@@ -69,15 +72,33 @@ exports.getAttemptDetails = async (req, res) => {
     }
     const attempt = attemptRows[0];
 
-    // Fetch questions for that quiz type (to display review)
+    // Parse stored answers JSON
+    let studentAnswers = {};
+    if (attempt.answers) {
+      try {
+        studentAnswers = typeof attempt.answers === 'string'
+          ? JSON.parse(attempt.answers)
+          : attempt.answers;
+      } catch (e) {
+        console.error('Error parsing answers JSON:', e);
+      }
+    }
+
+    // Fetch questions for that quiz type
     const [questionRows] = await db.query(
       `SELECT * FROM questions WHERE type_id = ?`,
       [attempt.type_id]
     );
 
+    // Attach student answer to each question
+    const questionsWithAnswers = questionRows.map(q => ({
+      ...q,
+      student_answer: studentAnswers[q.id] || null
+    }));
+
     res.json({
       attempt,
-      questions: questionRows
+      questions: questionsWithAnswers
     });
   } catch (error) {
     console.error('GET ATTEMPT DETAILS ERROR:', error);
