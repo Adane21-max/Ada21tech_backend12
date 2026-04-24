@@ -149,6 +149,18 @@ async function initializeTables() {
     `);
     console.log('✅ quiz_attempts table ready');
 
+    // 🔧 Ensure answers column exists in quiz_attempts (idempotent – safe to run every deploy)
+try {
+  const [answerCols] = await db.query("SHOW COLUMNS FROM quiz_attempts LIKE 'answers'");
+  if (answerCols.length === 0) {
+    await db.query("ALTER TABLE quiz_attempts ADD COLUMN answers TEXT NULL AFTER time_taken");
+    console.log('✅ Added missing answers column to quiz_attempts');
+  } else {
+    console.log('✅ answers column already exists in quiz_attempts');
+  }
+} catch (err) {
+  console.error('❌ Failed to ensure answers column:', err.message);
+}
     // Ensure admin user exists
     await db.query(`
       INSERT INTO users (username, password, role, status) 
