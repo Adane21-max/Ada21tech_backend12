@@ -6,21 +6,16 @@ const {
   getUpgradeRequests,
   approveUpgrade,
   rejectUpgrade,
-  getMyPendingRequests   // <-- add this
+  getMyPendingRequests
 } = require('../controllers/upgradeController');
 
-// Student: request an upgrade
+// Student routes
 router.post('/request', authenticate, requestUpgrade);
+router.get('/pending', authenticate, getMyPendingRequests);   // ✅
 
-// Admin: view all requests
+// Admin routes
 router.get('/', authenticate, isAdmin, getUpgradeRequests);
-
-// Admin: approve request
 router.put('/:id/approve', authenticate, isAdmin, approveUpgrade);
-
-// Admin: reject request
 router.put('/:id/reject', authenticate, isAdmin, rejectUpgrade);
-
-router.get('/pending', authenticate, getMyPendingRequests);
 
 module.exports = router;
