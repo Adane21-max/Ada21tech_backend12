@@ -134,3 +134,18 @@ exports.rejectUpgrade = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// Student: get subject IDs of pending upgrade requests
+exports.getMyPendingRequests = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const [rows] = await db.query(
+      "SELECT subject_id FROM upgrade_requests WHERE student_id = ? AND status = 'pending'",
+      [studentId]
+    );
+    res.json(rows.map(r => r.subject_id));
+  } catch (error) {
+    console.error('Get my pending requests error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
