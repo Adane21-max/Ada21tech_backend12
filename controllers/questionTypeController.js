@@ -3,13 +3,13 @@ const db = require('../config/db');
 // Admin: Create a question type
 exports.createQuestionType = async (req, res) => {
   try {
-    const { name, grade, subject_id, total_time, is_visible } = req.body;
+    const { name, grade, subject_id, total_time, is_visible, level } = req.body;
     if (!name || !grade || !subject_id) {
       return res.status(400).json({ message: 'Name, grade, and subject are required' });
     }
     const [result] = await db.query(
-      'INSERT INTO question_types (name, grade, subject_id, total_time, is_visible) VALUES (?, ?, ?, ?, ?)',
-      [name, grade, subject_id, total_time || null, is_visible !== false]
+      'INSERT INTO question_types (name, grade, subject_id, total_time, is_visible, level) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, grade, subject_id, total_time || null, is_visible !== false, level || 1]
     );
     res.status(201).json({ message: 'Question type created', id: result.insertId });
   } catch (error) {
@@ -54,7 +54,7 @@ exports.updateQuestionType = async (req, res) => {
 
     const fields = [];
     const values = [];
-    const allowedFields = ['name', 'grade', 'subject_id', 'total_time', 'is_visible'];
+    const allowedFields = ['name', 'grade', 'subject_id', 'total_time', 'is_visible', 'level'];   // added level
 
     allowedFields.forEach(field => {
       if (updates[field] !== undefined) {
@@ -100,21 +100,39 @@ exports.deleteQuestionType = async (req, res) => {
   }
 };
 
-// Student: Get visible question types for a grade/subject
+// Student: Get visible question types for a grade/subject, filtered by student's unlocked level
 exports.getVisibleTypesForStudent = async (req, res) => {
   try {
+    const studentId = req.user.id;
     const { grade, subject_id } = req.query;
     if (!grade) {
       return res.status(400).json({ message: 'Grade is required' });
     }
-    let query = 'SELECT id, name, total_time, subject_id FROM question_types WHERE grade = ? AND is_visible = TRUE';
+
+    // Get the student's unlocked level for each subject
+    const [levels] = await db.query(
+      'SELECT subject_id, level FROM student_subject_level WHERE student_id = ?',
+      [studentId]
+    );
+    const levelMap = {};
+    levels.forEach(l => { levelMap[l.subject_id] = l.level; });
+
+    // Fetch all visible question types (include level field)
+    let query = 'SELECT id, name, total_time, subject_id, level FROM question_types WHERE grade = ? AND is_visible = TRUE';
     const params = [grade];
     if (subject_id) {
       query += ' AND subject_id = ?';
       params.push(subject_id);
     }
     const [rows] = await db.query(query, params);
-    res.json(rows);
+
+    // Filter out quizzes that are above the student's current level
+    const filtered = rows.filter(q => {
+      const studentLevel = levelMap[q.subject_id] || 1;   // default to 1 if no record
+      return q.level <= studentLevel;
+    });
+
+    res.json(filtered);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -138,6 +156,7 @@ exports.getQuestionTypeById = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 exports.getScheduledQuizzesForStudent = async (req, res) => {
   try {
     const { grade } = req.query;
