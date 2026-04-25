@@ -236,3 +236,20 @@ exports.getLeaderboard = async (req, res) => {
     res.status(500).json({ message: 'Server error', detail: error.message });
   }
 };
+
+// Student: get current unlocked levels per subject
+exports.getMyLevels = async (req, res) => {
+  try {
+    const studentId = req.user.id;
+    const [levels] = await db.query(
+      'SELECT subject_id, level FROM student_subject_level WHERE student_id = ?',
+      [studentId]
+    );
+    const result = {};
+    levels.forEach(l => { result[l.subject_id] = l.level; });
+    res.json(result);
+  } catch (error) {
+    console.error('Get my levels error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
