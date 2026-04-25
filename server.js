@@ -217,6 +217,19 @@ async function initializeTables() {
       VALUES ('admin', '$2b$10$t1H.F7BUbEVvZIR9FEpfbOYkaFCIcQPet01BMNWpIsr.ljoD6Jiq.', 'admin', 'approved')
       ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), status = VALUES(status)
     `);
+        // 🔧 Ensure current_level column exists in users
+    try {
+      const [levelCol] = await db.query("SHOW COLUMNS FROM users LIKE 'current_level'");
+      if (levelCol.length === 0) {
+        await db.query("ALTER TABLE users ADD COLUMN current_level INT DEFAULT 1 NOT NULL");
+        await db.query("UPDATE users SET current_level = 1 WHERE role = 'student'");
+        console.log('✅ Added current_level column to users');
+      } else {
+        console.log('✅ current_level column already exists in users');
+      }
+    } catch (err) {
+      console.error('❌ Failed to ensure current_level column:', err.message);
+    }
     console.log('✅ admin user verified');
   } catch (err) {
     console.error('❌ Table initialization error:', err.message);
