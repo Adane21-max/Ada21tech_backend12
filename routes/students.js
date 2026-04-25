@@ -9,11 +9,13 @@ const {
   getStudentsWithQuizTypeCount,
   deleteStudent,
   getLeaderboard,
-  getMyLevels   // ✅
+  getMyLevels,
+  getCurrentLevel   // ✅ new import
 } = require('../controllers/studentController');
 
-// Student route (must be before any :id routes)
-router.get('/my-levels', authenticate, getMyLevels);   // ✅
+// Student routes (must be before any :id routes)
+router.get('/my-levels', authenticate, getMyLevels);
+router.get('/current-level', authenticate, getCurrentLevel);   // ✅ new route
 
 // Admin routes
 router.get('/', authenticate, isAdmin, getAllStudents);
