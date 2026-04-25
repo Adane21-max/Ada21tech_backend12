@@ -13,11 +13,32 @@ exports.getAllStudents = async (req, res) => {
   }
 };
 
-// Approve a student
+// ✅ Approve a student + seed Level 1 for all subjects in their grade
 exports.approveStudent = async (req, res) => {
   try {
     const { id } = req.params;
-    await db.query("UPDATE users SET status = 'approved' WHERE id = ? AND role = 'student'", [id]);
+
+    // 1. Update the student's status
+    const [result] = await db.query(
+      "UPDATE users SET status = 'approved' WHERE id = ? AND role = 'student'",
+      [id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
+
+    // 2. Seed Level 1 access for all subjects in their grade
+    const [student] = await db.query('SELECT grade FROM users WHERE id = ?', [id]);
+    if (student.length > 0) {
+      const [subjects] = await db.query('SELECT id FROM subjects WHERE grade = ?', [student[0].grade]);
+      for (const subj of subjects) {
+        await db.query(
+          'INSERT IGNORE INTO student_subject_level (student_id, subject_id, level) VALUES (?, ?, 1)',
+          [id, subj.id]
+        );
+      }
+    }
+
     res.json({ message: 'Student approved' });
   } catch (error) {
     console.error(error);
@@ -58,7 +79,6 @@ exports.getStudentsWithQuizTypeCount = async (req, res) => {
   try {
     const { grade } = req.query;
     
-    // First, get basic student info
     let studentQuery = `
       SELECT id, username, grade, status, created_at
       FROM users
@@ -73,16 +93,13 @@ exports.getStudentsWithQuizTypeCount = async (req, res) => {
     
     const [students] = await db.query(studentQuery, params);
     
-    // For each student, get their stats individually (safe, avoids complex joins)
     for (const student of students) {
-      // 1. Count distinct quiz types attempted
       const [typeCount] = await db.query(
         `SELECT COUNT(DISTINCT type_id) AS count FROM quiz_attempts WHERE student_id = ?`,
         [student.id]
       );
       student.quiz_types_taken = typeCount[0].count || 0;
       
-      // 2. Get average per subject
       const [subjectAvgs] = await db.query(
         `SELECT 
            qt.subject_id,
@@ -94,7 +111,6 @@ exports.getStudentsWithQuizTypeCount = async (req, res) => {
         [student.id]
       );
       
-      // 3. Calculate T (sum of subject averages) and overall average
       let totalSubjectAvgSum = 0;
       let subjectCount = 0;
       subjectAvgs.forEach(row => {
@@ -117,36 +133,34 @@ exports.getStudentsWithQuizTypeCount = async (req, res) => {
   }
 };
 
-// Delete a student and all related records (cascade)
+// ✅ Delete a student + all related records (including new upgrade tables)
 exports.deleteStudent = async (req, res) => {
   const { id } = req.params;
   const connection = await db.getConnection();
   
   try {
     await connection.beginTransaction();
-    
-    // Temporarily disable foreign key checks
     await connection.query('SET FOREIGN_KEY_CHECKS = 0');
-    
-    // Delete child records
+
+    // Delete child records (including the new ones)
     await connection.query('DELETE FROM payments WHERE student_id = ?', [id]);
     await connection.query('DELETE FROM quiz_attempts WHERE student_id = ?', [id]);
-    
+    await connection.query('DELETE FROM student_subject_level WHERE student_id = ?', [id]);  // ✅ NEW
+    await connection.query('DELETE FROM upgrade_requests WHERE student_id = ?', [id]);        // ✅ NEW
+
     // Delete the user
     const [result] = await connection.query(
       "DELETE FROM users WHERE id = ? AND role = 'student'",
       [id]
     );
-    
-    // Re-enable foreign key checks
+
     await connection.query('SET FOREIGN_KEY_CHECKS = 1');
-    
     await connection.commit();
-    
+
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Student not found' });
     }
-    
+
     res.json({ message: 'Student and all associated data deleted' });
   } catch (error) {
     await connection.rollback();
@@ -157,12 +171,10 @@ exports.deleteStudent = async (req, res) => {
   }
 };
 
-// ✅ NEW: Get top 10 leaderboard for students
+// ✅ Get top 10 leaderboard for students (unchanged)
 exports.getLeaderboard = async (req, res) => {
   try {
     const { grade } = req.query;
-    
-    // Get all students (optionally filtered by grade)
     let studentQuery = `
       SELECT id, username, grade
       FROM users
@@ -175,11 +187,9 @@ exports.getLeaderboard = async (req, res) => {
     }
     
     const [students] = await db.query(studentQuery, params);
-    
     const leaderboard = [];
     
     for (const student of students) {
-      // Count distinct subjects attempted
       const [subjectCountResult] = await db.query(
         `SELECT COUNT(DISTINCT qt.subject_id) AS subject_count
          FROM quiz_attempts qa
@@ -188,11 +198,8 @@ exports.getLeaderboard = async (req, res) => {
         [student.id]
       );
       const subjectCount = subjectCountResult[0].subject_count || 0;
-      
-      // Skip students with no attempts
       if (subjectCount === 0) continue;
       
-      // Get subject averages
       const [subjectAvgs] = await db.query(
         `SELECT 
            qt.subject_id,
@@ -210,7 +217,6 @@ exports.getLeaderboard = async (req, res) => {
           totalSubjectAvgSum += row.subject_avg;
         }
       });
-      
       const overallAvg = totalSubjectAvgSum / subjectCount;
       
       leaderboard.push({
@@ -222,10 +228,8 @@ exports.getLeaderboard = async (req, res) => {
       });
     }
     
-    // Sort by Avg descending and take top 10
     leaderboard.sort((a, b) => b.Avg - a.Avg);
     const top10 = leaderboard.slice(0, 10);
-    
     res.json(top10);
   } catch (error) {
     console.error('Error in getLeaderboard:', error);
