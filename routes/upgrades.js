@@ -11,7 +11,7 @@ const {
 
 // Student routes
 router.post('/request', authenticate, requestUpgrade);
-router.get('/pending', authenticate, getMyPendingRequests);   // ✅
+router.get('/pending', authenticate, getMyPendingRequests);
 
 // Admin routes
 router.get('/', authenticate, isAdmin, getUpgradeRequests);
