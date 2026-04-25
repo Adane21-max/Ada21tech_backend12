@@ -37,6 +37,7 @@ async function initializeTables() {
         name VARCHAR(100) NOT NULL,
         grade INT NOT NULL,
         subject_id INT NOT NULL,
+        level INT DEFAULT 1 NOT NULL,
         total_time INT DEFAULT NULL,
         is_visible BOOLEAN DEFAULT TRUE,
         start_date DATETIME NULL,
@@ -150,17 +151,66 @@ async function initializeTables() {
     console.log('✅ quiz_attempts table ready');
 
     // 🔧 Ensure answers column exists in quiz_attempts (idempotent – safe to run every deploy)
-try {
-  const [answerCols] = await db.query("SHOW COLUMNS FROM quiz_attempts LIKE 'answers'");
-  if (answerCols.length === 0) {
-    await db.query("ALTER TABLE quiz_attempts ADD COLUMN answers TEXT NULL AFTER time_taken");
-    console.log('✅ Added missing answers column to quiz_attempts');
-  } else {
-    console.log('✅ answers column already exists in quiz_attempts');
-  }
-} catch (err) {
-  console.error('❌ Failed to ensure answers column:', err.message);
-}
+    try {
+      const [answerCols] = await db.query("SHOW COLUMNS FROM quiz_attempts LIKE 'answers'");
+      if (answerCols.length === 0) {
+        await db.query("ALTER TABLE quiz_attempts ADD COLUMN answers TEXT NULL AFTER time_taken");
+        console.log('✅ Added missing answers column to quiz_attempts');
+      } else {
+        console.log('✅ answers column already exists in quiz_attempts');
+      }
+    } catch (err) {
+      console.error('❌ Failed to ensure answers column:', err.message);
+    }
+
+    // =====================
+    // UPGRADE SYSTEM TABLES
+    // =====================
+
+    // 🔧 Ensure 'level' column exists in question_types (safe to run always)
+    try {
+      const [levelCol] = await db.query("SHOW COLUMNS FROM question_types LIKE 'level'");
+      if (levelCol.length === 0) {
+        await db.query("ALTER TABLE question_types ADD COLUMN level INT DEFAULT 1 NOT NULL AFTER subject_id");
+        console.log('✅ Added level column to question_types');
+      } else {
+        console.log('✅ level column already exists in question_types');
+      }
+    } catch (err) {
+      console.error('❌ Failed to add level column:', err.message);
+    }
+
+    // Student subject level tracker
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS student_subject_level (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT NOT NULL,
+        subject_id INT NOT NULL,
+        level INT NOT NULL DEFAULT 1,
+        UNIQUE KEY unique_student_subject (student_id, subject_id),
+        FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('✅ student_subject_level table ready');
+
+    // Upgrade requests
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS upgrade_requests (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_id INT NOT NULL,
+        subject_id INT NOT NULL,
+        from_level INT NOT NULL,
+        to_level INT NOT NULL,
+        average_score DECIMAL(5,2) NOT NULL,
+        status ENUM('pending','approved','rejected') DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('✅ upgrade_requests table ready');
+
     // Ensure admin user exists
     await db.query(`
       INSERT INTO users (username, password, role, status) 
@@ -188,6 +238,7 @@ const studentRoutes = require('./routes/students');
 const paymentRoutes = require('./routes/payments');
 const questionTypeRoutes = require('./routes/questionTypes');
 const attemptRoutes = require('./routes/attempts');
+const upgradeRoutes = require('./routes/upgrades');   // <-- NEW
 
 app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectRoutes);
@@ -198,6 +249,7 @@ app.use('/api/students', studentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/question-types', questionTypeRoutes);
 app.use('/api/attempts', attemptRoutes);
+app.use('/api/upgrades', upgradeRoutes);              // <-- NEW
 
 // =====================
 // HEALTH CHECK
