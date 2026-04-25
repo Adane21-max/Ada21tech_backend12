@@ -18,9 +18,9 @@ exports.approveStudent = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 1. Update the student's status
+    // 1. Update the student's status and set current_level = 1
     const [result] = await db.query(
-      "UPDATE users SET status = 'approved' WHERE id = ? AND role = 'student'",
+      "UPDATE users SET status = 'approved', current_level = 1 WHERE id = ? AND role = 'student'",
       [id]
     );
     if (result.affectedRows === 0) {
