@@ -253,3 +253,13 @@ exports.getMyLevels = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+// Student: get own global current level
+exports.getCurrentLevel = async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT current_level FROM users WHERE id = ?', [req.user.id]);
+    res.json({ level: rows[0]?.current_level || 1 });
+  } catch (error) {
+    console.error('Get current level error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
