@@ -20,4 +20,6 @@ router.put('/:id/approve', authenticate, isAdmin, approveUpgrade);
 // Admin: reject request
 router.put('/:id/reject', authenticate, isAdmin, rejectUpgrade);
 
+router.get('/pending', authenticate, getMyPendingRequests);
+
 module.exports = router;
