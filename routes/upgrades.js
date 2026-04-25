@@ -5,7 +5,8 @@ const {
   requestUpgrade,
   getUpgradeRequests,
   approveUpgrade,
-  rejectUpgrade
+  rejectUpgrade,
+  getMyPendingRequests   // <-- add this
 } = require('../controllers/upgradeController');
 
 // Student: request an upgrade
