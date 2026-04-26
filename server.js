@@ -250,7 +250,6 @@ const announcementRoutes = require('./routes/announcements');
 const studentRoutes = require('./routes/students');
 const paymentRoutes = require('./routes/payments');
 const questionTypeRoutes = require('./routes/questionTypes');
-const attemptRoutes = require('./routes/attempts');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectRoutes);
@@ -260,7 +259,6 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/question-types', questionTypeRoutes);
-app.use('/api/attempts', attemptRoutes);
 
 // ==========================
 // UPGRADE ROUTES (inline, self-contained)
@@ -334,6 +332,22 @@ upgradeRouter.put('/:id/reject', authenticate, isAdmin, rejectUpgradeReq);
 
 app.use('/api/upgrades', upgradeRouter);
 // =====================
+// ==========================
+// ATTEMPT ROUTES (inline – no external file)
+// ==========================
+const attemptRouter = require('express').Router();
+const { authenticate } = require('./middleware/authMiddleware');
+const {
+  saveAttempt,
+  getStudentAttempts,
+  getAttemptDetails
+} = require('./controllers/attemptController');
+
+attemptRouter.post('/', authenticate, saveAttempt);
+attemptRouter.get('/', authenticate, getStudentAttempts);
+attemptRouter.get('/:id', authenticate, getAttemptDetails);
+
+app.use('/api/attempts', attemptRouter);
 // HEALTH CHECK
 // =====================
 app.get('/', (req, res) => {
