@@ -262,7 +262,7 @@ app.use('/api/students', studentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/question-types', questionTypeRoutes);
 app.use('/api/attempts', attemptRoutes);
-//app.use('/api/upgrades', upgradeRoutes);              // <-- NEW
+app.use('/api/upgrades', upgradeRoutes);              // <-- NEW
 
 // =====================
 // HEALTH CHECK
