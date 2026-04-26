@@ -9,7 +9,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static('uploads'));
 
 const db = require('./config/db');
-
+const { authenticate, isAdmin } = require('./middleware/authMiddleware');
 // =====================
 // AUTO-INITIALIZE ALL TABLES ON STARTUP
 // =====================
@@ -146,7 +146,6 @@ app.use('/api/question-types', questionTypeRoutes);
 // ATTEMPT ROUTES (inline)
 // ==========================
 const attemptRouter = require('express').Router();
-const { authenticate } = require('./middleware/authMiddleware');
 const { saveAttempt, getStudentAttempts, getAttemptDetails } = require('./controllers/attemptController');
 
 attemptRouter.post('/', authenticate, saveAttempt);
