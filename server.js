@@ -124,8 +124,8 @@ initializeTables();
 // =====================
 // ROUTES (external)
 // =====================
-//const authRoutes = require('./routes/auth');
-//const subjectRoutes = require('./routes/subjects');
+const authRoutes = require('./routes/auth');
+const subjectRoutes = require('./routes/subjects');
 //const questionRoutes = require('./routes/questions');
 //const freeTrialRoutes = require('./routes/freeTrial');
 //const announcementRoutes = require('./routes/announcements');
@@ -133,8 +133,8 @@ initializeTables();
 //const paymentRoutes = require('./routes/payments');
 //const questionTypeRoutes = require('./routes/questionTypes');
 
-//app.use('/api/auth', authRoutes);
-//app.use('/api/subjects', subjectRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/subjects', subjectRoutes);
 //app.use('/api/questions', questionRoutes);
 //app.use('/api/free-trial', freeTrialRoutes);
 //app.use('/api/announcements', announcementRoutes);
