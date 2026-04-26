@@ -158,11 +158,12 @@ app.use('/api/attempts', attemptRouter);
 // ==========================
 // UPGRADE ROUTES (inline)
 // ==========================
+// ==========================
+// UPGRADE ROUTES (inline)
+// ==========================
 const upgradeRouter = require('express').Router();
-const { authenticate, isAdmin } = require('./middleware/authMiddleware');
-const db = require('./config/db'); // already available, but ensure it's in scope
 
-// --- Handlers ---
+// --- Handlers (use existing `authenticate` and `isAdmin` from outer scope) ---
 
 const upgradeRequest = async (req, res) => {
   try {
@@ -220,7 +221,7 @@ const getPendingUpgrade = async (req, res) => {
   } catch(e){ console.error(e); res.status(500).json({msg:'Server error'}); }
 };
 
-// --- Mount ---
+// --- Mount routes (use the already declared authenticate/isAdmin) ---
 upgradeRouter.post('/request', authenticate, upgradeRequest);
 upgradeRouter.get('/pending', authenticate, getPendingUpgrade);
 upgradeRouter.get('/', authenticate, isAdmin, getUpgradeReqs);
