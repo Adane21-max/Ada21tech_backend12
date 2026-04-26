@@ -251,7 +251,6 @@ const studentRoutes = require('./routes/students');
 const paymentRoutes = require('./routes/payments');
 const questionTypeRoutes = require('./routes/questionTypes');
 const attemptRoutes = require('./routes/attempts');
-//const upgradeRoutes = require('./routes/upgrades');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectRoutes);
@@ -262,7 +261,6 @@ app.use('/api/students', studentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/question-types', questionTypeRoutes);
 app.use('/api/attempts', attemptRoutes);
-//app.use('/api/upgrades', upgradeRoutes);             // <-- NEW
 
 // =====================
 // HEALTH CHECK
