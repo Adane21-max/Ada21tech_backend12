@@ -129,18 +129,18 @@ const subjectRoutes = require('./routes/subjects');
 const questionRoutes = require('./routes/questions');
 const freeTrialRoutes = require('./routes/freeTrial');
 const announcementRoutes = require('./routes/announcements');
-const studentRoutes = require('./routes/students');
-//const paymentRoutes = require('./routes/payments');
-//const questionTypeRoutes = require('./routes/questionTypes');
+//const studentRoutes = require('./routes/students');
+const paymentRoutes = require('./routes/payments');
+const questionTypeRoutes = require('./routes/questionTypes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectRoutes);
 app.use('/api/questions', questionRoutes);
 app.use('/api/free-trial', freeTrialRoutes);
 app.use('/api/announcements', announcementRoutes);
-app.use('/api/students', studentRoutes);
-//app.use('/api/payments', paymentRoutes);
-//app.use('/api/question-types', questionTypeRoutes);
+//app.use('/api/students', studentRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/question-types', questionTypeRoutes);
 
 // ==========================
 // ATTEMPT ROUTES (inline)
