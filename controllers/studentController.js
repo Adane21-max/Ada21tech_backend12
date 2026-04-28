@@ -145,8 +145,8 @@ exports.deleteStudent = async (req, res) => {
     // Delete child records (including the new ones)
     await connection.query('DELETE FROM payments WHERE student_id = ?', [id]);
     await connection.query('DELETE FROM quiz_attempts WHERE student_id = ?', [id]);
-    await connection.query('DELETE FROM student_subject_level WHERE student_id = ?', [id]);  // ✅ NEW
-    await connection.query('DELETE FROM upgrade_requests WHERE student_id = ?', [id]);        // ✅ NEW
+    await connection.query('DELETE FROM student_subject_level WHERE student_id = ?', [id]);
+    await connection.query('DELETE FROM upgrade_requests WHERE student_id = ?', [id]);
 
     // Delete the user
     const [result] = await connection.query(
@@ -171,66 +171,38 @@ exports.deleteStudent = async (req, res) => {
   }
 };
 
-// ✅ Get top 10 leaderboard for students (unchanged)
+// ✅ Get Top 10 Leaderboard – overall average, ranked by average
 exports.getLeaderboard = async (req, res) => {
   try {
     const { grade } = req.query;
-    let studentQuery = `
-      SELECT id, username, grade
-      FROM users
-      WHERE role = 'student'
-    `;
     const params = [];
+    let gradeCondition = '';
+
     if (grade) {
-      studentQuery += ' AND grade = ?';
+      gradeCondition = ' AND u.grade = ?';
       params.push(grade);
     }
-    
-    const [students] = await db.query(studentQuery, params);
-    const leaderboard = [];
-    
-    for (const student of students) {
-      const [subjectCountResult] = await db.query(
-        `SELECT COUNT(DISTINCT qt.subject_id) AS subject_count
-         FROM quiz_attempts qa
-         JOIN question_types qt ON qa.type_id = qt.id
-         WHERE qa.student_id = ?`,
-        [student.id]
-      );
-      const subjectCount = subjectCountResult[0].subject_count || 0;
-      if (subjectCount === 0) continue;
-      
-      const [subjectAvgs] = await db.query(
-        `SELECT 
-           qt.subject_id,
-           AVG(qa.score / NULLIF(qa.total_questions, 0) * 100) AS subject_avg
-         FROM quiz_attempts qa
-         JOIN question_types qt ON qa.type_id = qt.id
-         WHERE qa.student_id = ?
-         GROUP BY qt.subject_id`,
-        [student.id]
-      );
-      
-      let totalSubjectAvgSum = 0;
-      subjectAvgs.forEach(row => {
-        if (row.subject_avg !== null) {
-          totalSubjectAvgSum += row.subject_avg;
-        }
-      });
-      const overallAvg = totalSubjectAvgSum / subjectCount;
-      
-      leaderboard.push({
-        username: student.username,
-        grade: student.grade,
-        subject_count: subjectCount,
-        T: Math.round(totalSubjectAvgSum * 100) / 100,
-        Avg: Math.round(overallAvg * 100) / 100
-      });
-    }
-    
-    leaderboard.sort((a, b) => b.Avg - a.Avg);
-    const top10 = leaderboard.slice(0, 10);
-    res.json(top10);
+
+    const query = `
+      SELECT 
+        u.username,
+        u.grade,
+        COUNT(DISTINCT qt.subject_id) AS subject_count,
+        COUNT(qa.id) AS quiz_count,
+        ROUND(AVG(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS Avg,
+        ROUND(SUM(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS T
+      FROM users u
+      JOIN quiz_attempts qa ON u.id = qa.student_id
+      JOIN question_types qt ON qa.type_id = qt.id
+      WHERE u.role = 'student'${gradeCondition}
+      GROUP BY u.id, u.username, u.grade
+      HAVING quiz_count > 0
+      ORDER BY Avg DESC
+      LIMIT 10
+    `;
+
+    const [rows] = await db.query(query, params);
+    res.json(rows);
   } catch (error) {
     console.error('Error in getLeaderboard:', error);
     res.status(500).json({ message: 'Server error', detail: error.message });
@@ -253,6 +225,7 @@ exports.getMyLevels = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 // Student: get own global current level
 exports.getCurrentLevel = async (req, res) => {
   try {
