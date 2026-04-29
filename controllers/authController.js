@@ -22,7 +22,7 @@ exports.register = async (req, res) => {
     const [existing] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
     if (existing.length > 0) {
       console.warn('Username already taken:', username);
-      return res.status(400).json({ message: 'Username already taken' });
+  return res.status(400).json({ message: 'Username already taken, use another username' });   
     }
 
     const salt = await bcrypt.genSalt(10);
