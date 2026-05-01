@@ -163,6 +163,12 @@ const upgradeRouter = require('express').Router();
 
 const upgradeRequest = async (req, res) => {
   try {
+    // ✅ Extract and validate payment fields
+    const { payer_name, transaction_ref } = req.body;
+    if (!payer_name || !transaction_ref) {
+      return res.status(400).json({msg:'Please provide your full name and transaction reference.'});
+    }
+
     const sid = req.user.id;
     const grd = req.user.grade;
     const [[u]] = await db.query('SELECT current_level FROM users WHERE id = ?', [sid]);
