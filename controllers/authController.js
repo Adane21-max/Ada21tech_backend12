@@ -1,4 +1,4 @@
-﻿const db = require('../config/db');
+const db = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
@@ -22,7 +22,7 @@ exports.register = async (req, res) => {
     const [existing] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
     if (existing.length > 0) {
       console.warn('Username already taken:', username);
-  return res.status(400).json({ message: 'Username already taken, use another username' });   
+      return res.status(400).json({ message: 'Username already taken, use another username' });   
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -63,7 +63,7 @@ exports.login = async (req, res) => {
 
     if (rows.length === 0) {
       console.warn('User not found:', username);
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'not_registered' });   // 🔁 CHANGED
     }
 
     const user = rows[0];
@@ -71,10 +71,10 @@ exports.login = async (req, res) => {
 
     if (!validPassword) {
       console.warn('Invalid password for user:', username);
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid password' }); // 🔁 CHANGED
     }
 
-    // Block rejected students (optional)
+    // Block rejected students
     if (user.role === 'student' && user.status === 'rejected') {
       console.warn('Rejected student login attempt:', username);
       return res.status(403).json({ message: 'Your account has been rejected. Please contact support.' });
