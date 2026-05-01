@@ -225,11 +225,33 @@ const approveUpgradeReq = async (req, res) => {
     const {id} = req.params;
     const [[r]] = await db.query('SELECT * FROM upgrade_requests WHERE id=?',[id]);
     if (!r) return res.status(404).json({msg:'Not found'});
-    await db.query('UPDATE users SET current_level=? WHERE id=?',[r.to_level, r.student_id]);
-    await db.query('UPDATE student_subject_level SET level=? WHERE student_id=?',[r.to_level, r.student_id]);
-    await db.query("UPDATE upgrade_requests SET status='approved' WHERE id=?",[id]);
-    res.json({msg:`Approved Level ${r.to_level}`});
-  } catch(e) { console.error(e); res.status(500).json({msg:'Server error'}); }
+
+    const studentId = r.student_id;
+    const toLevel = r.to_level;
+
+    // 1. Seed any missing subject-level rows for this student (Level 1 by default)
+    await db.query(
+      `INSERT IGNORE INTO student_subject_level (student_id, subject_id, level)
+       SELECT u.id, s.id, 1
+       FROM users u
+       JOIN subjects s ON u.grade = s.grade
+       WHERE u.id = ? AND u.role = 'student'`,
+      [studentId]
+    );
+
+    // 2. Update global level
+    await db.query('UPDATE users SET current_level=? WHERE id=?', [toLevel, studentId]);
+
+    // 3. Sync all existing subject rows to the new level
+    await db.query('UPDATE student_subject_level SET level=? WHERE student_id=?', [toLevel, studentId]);
+
+    // 4. Mark request as approved
+    await db.query("UPDATE upgrade_requests SET status='approved' WHERE id=?", [id]);
+    res.json({msg:`Approved Level ${toLevel}`});
+  } catch(e) {
+    console.error(e);
+    res.status(500).json({msg:'Server error'});
+  }
 };
 
 const rejectUpgradeReq = async (req, res) => {
