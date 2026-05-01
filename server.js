@@ -182,7 +182,7 @@ const upgradeRequest = async (req, res) => {
 
     // Temporarily disable foreign key checks for this connection
     await db.query('SET FOREIGN_KEY_CHECKS = 0');
-    await db.query('INSERT INTO upgrade_requests (student_id,subject_id,from_level,to_level,average_score) VALUES (?,0,?,?,?)',[sid,lvl,lvl+1,avg]);
+    await db.query('INSERT INTO upgrade_requests (student_id,subject_id,from_level,to_level,average_score,payer_name,transaction_ref) VALUES (?,0,?,?,?,?,?)', [sid, lvl, lvl+1, avg, payer_name, transaction_ref]);
     await db.query('SET FOREIGN_KEY_CHECKS = 1');
 
     res.json({msg:`Request to Level ${lvl+1} submitted`});
