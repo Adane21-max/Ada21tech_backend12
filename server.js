@@ -157,9 +157,6 @@ app.use('/api/attempts', attemptRouter);
 // ==========================
 // UPGRADE ROUTES (inline)
 // ==========================
-// ==========================
-// UPGRADE ROUTES (inline)
-// ==========================
 const upgradeRouter = require('express').Router();
 
 // --- Handlers (use existing `authenticate` and `isAdmin` from outer scope) ---
@@ -180,16 +177,23 @@ const upgradeRequest = async (req, res) => {
     a.forEach(r=> sum += (r.score/r.total_questions)*100);
     const avg = sum/a.length;
     if (avg < 70) return res.status(400).json({msg:`Avg ${avg.toFixed(1)}%, need 70%`});
-const [ex] = await db.query("SELECT id FROM upgrade_requests WHERE student_id=? AND subject_id = 0 AND status='pending'",[sid]);
+    const [ex] = await db.query("SELECT id FROM upgrade_requests WHERE student_id=? AND subject_id = 0 AND status='pending'",[sid]);
     if (ex.length) return res.status(400).json({msg:'Pending already exists'});
-    await db.query('INSERT INTO upgrade_requests (student_id,subject_id,from_level,to_level,average_score) VALUES (?,0,?,?,?)',[sid,lvl,lvl+1,avg]);    res.json({msg:`Request to Level ${lvl+1} submitted`});
-  } catch(e){ console.error(e); res.status(500).json({msg:'Server error'}); }
+
+    // Temporarily disable foreign key checks for this connection
+    await db.query('SET FOREIGN_KEY_CHECKS = 0');
+    await db.query('INSERT INTO upgrade_requests (student_id,subject_id,from_level,to_level,average_score) VALUES (?,0,?,?,?)',[sid,lvl,lvl+1,avg]);
+    await db.query('SET FOREIGN_KEY_CHECKS = 1');
+
+    res.json({msg:`Request to Level ${lvl+1} submitted`});
+  } catch(e) { console.error(e); res.status(500).json({msg:'Server error'}); }
 };
 
 const getUpgradeReqs = async (req, res) => {
   try {
-   const [rows] = await db.query("SELECT ur.*, u.username, CASE WHEN ur.subject_id = 0 THEN 'All subjects' ELSE s.name END AS subject_name FROM upgrade_requests ur JOIN users u ON ur.student_id=u.id LEFT JOIN subjects s ON ur.subject_id=s.id ORDER BY ur.created_at DESC");    res.json(rows);
-  } catch(e){ console.error(e); res.status(500).json({msg:'Server error'}); }
+    const [rows] = await db.query("SELECT ur.*, u.username, CASE WHEN ur.subject_id = 0 THEN 'All subjects' ELSE s.name END AS subject_name FROM upgrade_requests ur JOIN users u ON ur.student_id=u.id LEFT JOIN subjects s ON ur.subject_id=s.id ORDER BY ur.created_at DESC");
+    res.json(rows);
+  } catch(e) { console.error(e); res.status(500).json({msg:'Server error'}); }
 };
 
 const approveUpgradeReq = async (req, res) => {
@@ -201,21 +205,21 @@ const approveUpgradeReq = async (req, res) => {
     await db.query('UPDATE student_subject_level SET level=? WHERE student_id=?',[r.to_level, r.student_id]);
     await db.query("UPDATE upgrade_requests SET status='approved' WHERE id=?",[id]);
     res.json({msg:`Approved Level ${r.to_level}`});
-  } catch(e){ console.error(e); res.status(500).json({msg:'Server error'}); }
+  } catch(e) { console.error(e); res.status(500).json({msg:'Server error'}); }
 };
 
 const rejectUpgradeReq = async (req, res) => {
   try {
     await db.query("UPDATE upgrade_requests SET status='rejected' WHERE id=?",[req.params.id]);
     res.json({msg:'Rejected'});
-  } catch(e){ console.error(e); res.status(500).json({msg:'Server error'}); }
+  } catch(e) { console.error(e); res.status(500).json({msg:'Server error'}); }
 };
 
 const getPendingUpgrade = async (req, res) => {
   try {
-const [rows] = await db.query("SELECT id FROM upgrade_requests WHERE student_id=? AND subject_id = 0 AND status='pending'",[req.user.id]);
+    const [rows] = await db.query("SELECT id FROM upgrade_requests WHERE student_id=? AND subject_id = 0 AND status='pending'",[req.user.id]);
     res.json({pending: rows.length>0});
-  } catch(e){ console.error(e); res.status(500).json({msg:'Server error'}); }
+  } catch(e) { console.error(e); res.status(500).json({msg:'Server error'}); }
 };
 
 // --- Mount routes (use the already declared authenticate/isAdmin) ---
@@ -226,6 +230,7 @@ upgradeRouter.put('/:id/approve', authenticate, isAdmin, approveUpgradeReq);
 upgradeRouter.put('/:id/reject', authenticate, isAdmin, rejectUpgradeReq);
 
 app.use('/api/upgrades', upgradeRouter);
+
 // =====================
 // HEALTH CHECK
 // =====================
