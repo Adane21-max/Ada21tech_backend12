@@ -97,7 +97,25 @@ async function initializeTables() {
     // Upgrade requests
     await db.query(`CREATE TABLE IF NOT EXISTS upgrade_requests (id INT AUTO_INCREMENT PRIMARY KEY, student_id INT NOT NULL, subject_id INT NULL, from_level INT NOT NULL, to_level INT NOT NULL, average_score DECIMAL(5,2) NOT NULL, status ENUM('pending','approved','rejected') DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE)`);
     console.log('✅ upgrade_requests table ready');
+    // Upgrade requests
+    await db.query(`CREATE TABLE IF NOT EXISTS upgrade_requests (id INT AUTO_INCREMENT PRIMARY KEY, student_id INT NOT NULL, subject_id INT NULL, from_level INT NOT NULL, to_level INT NOT NULL, average_score DECIMAL(5,2) NOT NULL, status ENUM('pending','approved','rejected') DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE)`);
+    console.log('✅ upgrade_requests table ready');
 
+    // 🔧 Ensure payer_name / transaction_ref columns exist in upgrade_requests
+    try {
+      const [payerCol] = await db.query("SHOW COLUMNS FROM upgrade_requests LIKE 'payer_name'");
+      if (payerCol.length === 0) {
+        await db.query("ALTER TABLE upgrade_requests ADD COLUMN payer_name VARCHAR(255) AFTER average_score");
+        console.log('✅ Added payer_name column to upgrade_requests');
+      }
+      const [txnCol] = await db.query("SHOW COLUMNS FROM upgrade_requests LIKE 'transaction_ref'");
+      if (txnCol.length === 0) {
+        await db.query("ALTER TABLE upgrade_requests ADD COLUMN transaction_ref VARCHAR(100) AFTER payer_name");
+        console.log('✅ Added transaction_ref column to upgrade_requests');
+      }
+    } catch (err) {
+      console.error('❌ Failed to add payment columns:', err.message);
+    }
     // Ensure admin user exists
     await db.query(`INSERT INTO users (username, password, role, status) VALUES ('admin', '$2b$10$t1H.F7BUbEVvZIR9FEpfbOYkaFCIcQPet01BMNWpIsr.ljoD6Jiq.', 'admin', 'approved') ON DUPLICATE KEY UPDATE password = VALUES(password), role = VALUES(role), status = VALUES(status)`);
 
