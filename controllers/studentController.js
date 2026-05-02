@@ -184,22 +184,23 @@ exports.getLeaderboard = async (req, res) => {
     }
 
     const query = `
-      SELECT 
-        u.username,
-        u.grade,
-        COUNT(DISTINCT qt.subject_id) AS subject_count,
-        COUNT(qa.id) AS quiz_count,
-        ROUND(AVG(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS Avg,
-        ROUND(SUM(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS T
-      FROM users u
-      JOIN quiz_attempts qa ON u.id = qa.student_id
-      JOIN question_types qt ON qa.type_id = qt.id
-      WHERE u.role = 'student'${gradeCondition}
-      GROUP BY u.id, u.username, u.grade
-      HAVING quiz_count > 0
-      ORDER BY Avg DESC
-      LIMIT 10
-    `;
+  SELECT 
+    u.username,
+    u.grade,
+    u.current_level,
+    COUNT(DISTINCT qt.subject_id) AS subject_count,
+    COUNT(qa.id) AS quiz_count,
+    ROUND(AVG(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS Avg,
+    ROUND(SUM(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS T
+  FROM users u
+  JOIN quiz_attempts qa ON u.id = qa.student_id
+  JOIN question_types qt ON qa.type_id = qt.id
+  WHERE u.role = 'student'${grade ? ' AND u.grade = ?' : ''}
+  GROUP BY u.id, u.username, u.grade, u.current_level
+  HAVING quiz_count > 0
+  ORDER BY u.current_level ASC, Avg DESC
+  LIMIT 10
+`;
 
     const [rows] = await db.query(query, params);
     res.json(rows);
