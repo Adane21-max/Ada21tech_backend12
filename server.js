@@ -277,6 +277,22 @@ upgradeRouter.put('/:id/reject', authenticate, isAdmin, rejectUpgradeReq);
 
 app.use('/api/upgrades', upgradeRouter);
 
+// TEMPORARY route – seed all upgraded students (run once and remove)
+app.get('/api/admin/seed-upgraded-students', authenticate, isAdmin, async (req, res) => {
+  try {
+    const [result] = await db.query(
+      `INSERT IGNORE INTO student_subject_level (student_id, subject_id, level)
+       SELECT u.id, s.id, u.current_level
+       FROM users u
+       JOIN subjects s ON u.grade = s.grade
+       WHERE u.role = 'student' AND u.current_level > 1`
+    );
+    res.json({ message: `Seeded rows for upgraded students.`, affectedRows: result.affectedRows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Seed failed', error: err.message });
+  }
+});
 // =====================
 // HEALTH CHECK
 // =====================
