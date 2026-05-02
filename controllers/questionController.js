@@ -2,32 +2,33 @@ const db = require('../config/db');
 
 // Helper: recalculate scores for all attempts of a given quiz type
 async function recalcAttemptsForType(typeId) {
-  // 1. Fetch all attempts for this quiz type
+  console.log('📊 RECALC START for type_id:', typeId);
   const [attempts] = await db.query(
     'SELECT id, student_id, answers FROM quiz_attempts WHERE type_id = ?',
     [typeId]
   );
+  console.log(`   Found ${attempts.length} attempts`);
+
   if (attempts.length === 0) return;
 
-  // 2. Fetch the current questions (and correct answers) for this type
   const [questions] = await db.query(
     'SELECT id, correct_answer FROM questions WHERE type_id = ?',
     [typeId]
   );
   const totalQuestions = questions.length;
+  console.log(`   Current questions: ${totalQuestions}`);
+
   if (totalQuestions === 0) {
-    // If there are no questions left, set score = 0 and total = 0 for all attempts
     for (const attempt of attempts) {
       await db.query('UPDATE quiz_attempts SET score = 0, total_questions = 0 WHERE id = ?', [attempt.id]);
     }
+    console.log('   No questions left – scores zeroed');
     return;
   }
 
-  // Build a map questionId -> correct answer
   const correctMap = {};
   questions.forEach(q => { correctMap[q.id] = q.correct_answer; });
 
-  // 3. For each attempt, count how many answers now match the corrected answers
   for (const attempt of attempts) {
     let studentAnswers = {};
     if (attempt.answers) {
@@ -36,7 +37,7 @@ async function recalcAttemptsForType(typeId) {
           ? JSON.parse(attempt.answers)
           : attempt.answers;
       } catch (e) {
-        console.error('Failed to parse answers for attempt', attempt.id, e);
+        console.error('   ❌ Failed to parse answers for attempt', attempt.id, e);
         continue;
       }
     }
@@ -52,6 +53,7 @@ async function recalcAttemptsForType(typeId) {
       'UPDATE quiz_attempts SET score = ?, total_questions = ? WHERE id = ?',
       [correctCount, totalQuestions, attempt.id]
     );
+    console.log(`   ✅ Attempt ${attempt.id} updated: ${correctCount}/${totalQuestions}`);
   }
 }
 
