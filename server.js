@@ -277,20 +277,33 @@ upgradeRouter.put('/:id/reject', authenticate, isAdmin, rejectUpgradeReq);
 
 app.use('/api/upgrades', upgradeRouter);
 
-// TEMPORARY route – seed all upgraded students (run once and remove)
-app.get('/api/admin/seed-upgraded-students', authenticate, isAdmin, async (req, res) => {
+// TEMPORARY route – full visibility sync for all students (run once and remove)
+app.get('/api/admin/sync-student-visibility', authenticate, isAdmin, async (req, res) => {
   try {
-    const [result] = await db.query(
-      `INSERT IGNORE INTO student_subject_level (student_id, subject_id, level)
-       SELECT u.id, s.id, u.current_level
-       FROM users u
-       JOIN subjects s ON u.grade = s.grade
-       WHERE u.role = 'student' AND u.current_level > 1`
-    );
-    res.json({ message: `Seeded rows for upgraded students.`, affectedRows: result.affectedRows });
+    // 1. Insert missing rows for all students (current_level)
+    await db.query(`
+      INSERT IGNORE INTO student_subject_level (student_id, subject_id, level)
+      SELECT u.id, s.id, u.current_level
+      FROM users u
+      JOIN subjects s ON u.grade = s.grade
+      WHERE u.role = 'student'
+    `);
+
+    // 2. Update existing rows to match the student's current_level
+    const [updateResult] = await db.query(`
+      UPDATE student_subject_level ssl
+      JOIN users u ON ssl.student_id = u.id
+      SET ssl.level = u.current_level
+      WHERE u.role = 'student'
+    `);
+
+    res.json({
+      message: 'Visibility synced for all students.',
+      updatedRows: updateResult.changedRows || 0
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Seed failed', error: err.message });
+    res.status(500).json({ message: 'Sync failed', error: err.message });
   }
 });
 // =====================
