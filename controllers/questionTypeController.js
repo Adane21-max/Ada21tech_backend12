@@ -3,13 +3,13 @@ const db = require('../config/db');
 // Admin: Create a question type
 exports.createQuestionType = async (req, res) => {
   try {
-    const { name, grade, subject_id, total_time, is_visible, level } = req.body;
+    const { name, grade, subject_id, total_time, is_visible, level, start_date, end_date } = req.body;
     if (!name || !grade || !subject_id) {
       return res.status(400).json({ message: 'Name, grade, and subject are required' });
     }
     const [result] = await db.query(
-      'INSERT INTO question_types (name, grade, subject_id, total_time, is_visible, level) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, grade, subject_id, total_time || null, is_visible !== false, level || 1]
+      'INSERT INTO question_types (name, grade, subject_id, total_time, is_visible, level, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, grade, subject_id, total_time || null, is_visible !== false, level || 1, start_date || null, end_date || null]
     );
     res.status(201).json({ message: 'Question type created', id: result.insertId });
   } catch (error) {
@@ -54,7 +54,7 @@ exports.updateQuestionType = async (req, res) => {
 
     const fields = [];
     const values = [];
-    const allowedFields = ['name', 'grade', 'subject_id', 'total_time', 'is_visible', 'level'];   // added level
+    const allowedFields = ['name', 'grade', 'subject_id', 'total_time', 'is_visible', 'level', 'start_date', 'end_date'];
 
     allowedFields.forEach(field => {
       if (updates[field] !== undefined) {
@@ -100,7 +100,7 @@ exports.deleteQuestionType = async (req, res) => {
   }
 };
 
-// Student: Get visible question types for a grade/subject, filtered by student's unlocked level
+// Student: Get visible question types that are currently active and within level
 exports.getVisibleTypesForStudent = async (req, res) => {
   try {
     const studentId = req.user.id;
@@ -117,18 +117,25 @@ exports.getVisibleTypesForStudent = async (req, res) => {
     const levelMap = {};
     levels.forEach(l => { levelMap[l.subject_id] = l.level; });
 
-    // Fetch all visible question types (include level field)
-    let query = 'SELECT id, name, total_time, subject_id, level FROM question_types WHERE grade = ? AND is_visible = TRUE';
+    // Fetch visible and currently available quizzes based on date
+    let query = `
+      SELECT id, name, total_time, subject_id, level, start_date, end_date
+      FROM question_types
+      WHERE grade = ? AND is_visible = TRUE
+        AND (start_date IS NULL OR start_date <= NOW())
+        AND (end_date IS NULL OR end_date >= NOW())
+    `;
     const params = [grade];
     if (subject_id) {
       query += ' AND subject_id = ?';
       params.push(subject_id);
     }
+
     const [rows] = await db.query(query, params);
 
     // Filter out quizzes that are above the student's current level
     const filtered = rows.filter(q => {
-      const studentLevel = levelMap[q.subject_id] || 1;   // default to 1 if no record
+      const studentLevel = levelMap[q.subject_id] || 1;
       return q.level <= studentLevel;
     });
 
@@ -139,7 +146,7 @@ exports.getVisibleTypesForStudent = async (req, res) => {
   }
 };
 
-// Get single question type by ID
+// Get single question type by ID – also checks schedule
 exports.getQuestionTypeById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -150,7 +157,23 @@ exports.getQuestionTypeById = async (req, res) => {
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Question type not found' });
     }
-    res.json(rows[0]);
+
+    const qt = rows[0];
+    const now = new Date();
+    const start = qt.start_date ? new Date(qt.start_date) : null;
+    const end = qt.end_date ? new Date(qt.end_date) : null;
+
+    // If start date is set and it's in the future, block access
+    if (start && now < start) {
+      return res.status(403).json({ message: 'This quiz is not yet available. Please wait until the scheduled start time.' });
+    }
+
+    // If end date is set and it's in the past, block access
+    if (end && now > end) {
+      return res.status(403).json({ message: 'This quiz has expired and is no longer available.' });
+    }
+
+    res.json(qt);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
