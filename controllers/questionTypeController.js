@@ -118,7 +118,7 @@ exports.getVisibleTypesForStudent = async (req, res) => {
     levels.forEach(l => { levelMap[l.subject_id] = l.level; });
 
     // Fetch visible and currently available quizzes based on date
-        let query = `
+            let query = `
       SELECT id, name, total_time, subject_id, level, start_date, end_date
       FROM question_types
       WHERE grade = ? AND is_visible = TRUE
