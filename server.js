@@ -200,7 +200,7 @@ const upgradeRequest = async (req, res) => {
     let sum=0;
     a.forEach(r=> sum += (r.score/r.total_questions)*100);
     const avg = sum/a.length;
-    if (avg < 70) return res.status(400).json({msg:`Avg ${avg.toFixed(1)}%, need 70%`});
+    if (avg < 50) return res.status(400).json({msg:`Avg ${avg.toFixed(1)}%, need 50%`});
     const [ex] = await db.query("SELECT id FROM upgrade_requests WHERE student_id=? AND subject_id = 0 AND status='pending'",[sid]);
     if (ex.length) return res.status(400).json({msg:'Pending already exists'});
 
