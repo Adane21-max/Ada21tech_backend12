@@ -171,7 +171,7 @@ exports.deleteStudent = async (req, res) => {
   }
 };
 
-// ✅ Get Top 10 Leaderboard – overall average (all levels) + current‑level quiz count
+// ✅ Get Top 10 Leaderboard – overall average, ranked by average
 exports.getLeaderboard = async (req, res) => {
   try {
     const { grade } = req.query;
@@ -183,7 +183,24 @@ exports.getLeaderboard = async (req, res) => {
       params.push(grade);
     }
 
-    const query = "SELECT u.username, u.grade, COUNT(DISTINCT qt.subject_id) AS subject_count, COUNT(CASE WHEN qt.level <= COALESCE(ssl.level, 1) THEN qa.id END) AS quiz_count, ROUND(AVG(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS Avg, ROUND(SUM(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS T FROM users u JOIN quiz_attempts qa ON u.id = qa.student_id JOIN question_types qt ON qa.type_id = qt.id LEFT JOIN student_subject_level ssl ON ssl.student_id = u.id AND ssl.subject_id = qt.subject_id WHERE u.role = 'student'" + gradeCondition + " AND qt.is_visible = TRUE AND (qt.end_date IS NULL OR qt.end_date >= NOW()) AND qt.grade = u.grade GROUP BY u.id, u.username, u.grade HAVING COUNT(qa.id) > 0 ORDER BY Avg DESC LIMIT 10";
+    const query = `
+  SELECT 
+    u.username,
+    u.grade,
+    u.current_level,
+    COUNT(DISTINCT qt.subject_id) AS subject_count,
+    COUNT(qa.id) AS quiz_count,
+    ROUND(AVG(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS Avg,
+    ROUND(SUM(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS T
+  FROM users u
+  JOIN quiz_attempts qa ON u.id = qa.student_id
+  JOIN question_types qt ON qa.type_id = qt.id
+  WHERE u.role = 'student'${grade ? ' AND u.grade = ?' : ''}
+  GROUP BY u.id, u.username, u.grade, u.current_level
+  HAVING quiz_count > 0
+  ORDER BY u.current_level ASC, Avg DESC
+  LIMIT 10
+`;
 
     const [rows] = await db.query(query, params);
     res.json(rows);
@@ -192,6 +209,7 @@ exports.getLeaderboard = async (req, res) => {
     res.status(500).json({ message: 'Server error', detail: error.message });
   }
 };
+
 // Student: get current unlocked levels per subject
 exports.getMyLevels = async (req, res) => {
   try {
