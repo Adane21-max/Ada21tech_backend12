@@ -172,6 +172,7 @@ exports.deleteStudent = async (req, res) => {
 };
 
 // ✅ Get Top 10 Leaderboard – overall average (all levels) + current‑level quiz count
+// ✅ Get Top 10 Leaderboard – overall average (all levels) + current‑level quiz count
 exports.getLeaderboard = async (req, res) => {
   try {
     const { grade } = req.query;
@@ -188,9 +189,7 @@ exports.getLeaderboard = async (req, res) => {
         u.username,
         u.grade,
         COUNT(DISTINCT qt.subject_id) AS subject_count,
-        -- Count only attempts on quizzes at or below the student's unlocked level
         COUNT(CASE WHEN qt.level <= COALESCE(ssl.level, 1) THEN qa.id END) AS quiz_count,
-        -- Overall average across ALL attempts (no level filter, but still visible & not expired)
         ROUND(AVG(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS Avg,
         ROUND(SUM(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS T
       FROM users u
