@@ -183,14 +183,11 @@ exports.getLeaderboard = async (req, res) => {
       params.push(grade);
     }
 
+    // 1. Fetch all attempts on visible, non‑expired quizzes that match the student's grade
     const query = `
-      SELECT 
-        u.username,
-        u.grade,
-        COUNT(DISTINCT qt.subject_id) AS subject_count,
-        COUNT(qa.id) AS quiz_count,
-        ROUND(AVG(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS Avg,
-        ROUND(SUM(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS T
+      SELECT u.id, u.username, u.grade,
+             qt.subject_id, qt.level,
+             qa.score, qa.total_questions
       FROM users u
       JOIN quiz_attempts qa ON u.id = qa.student_id
       JOIN question_types qt ON qa.type_id = qt.id
@@ -198,14 +195,59 @@ exports.getLeaderboard = async (req, res) => {
         AND qt.is_visible = TRUE
         AND (qt.end_date IS NULL OR qt.end_date >= NOW())
         AND qt.grade = u.grade
-      GROUP BY u.id, u.username, u.grade
-      HAVING quiz_count > 0
-      ORDER BY quiz_count DESC, Avg DESC
-      LIMIT 10
     `;
 
     const [rows] = await db.query(query, params);
-    res.json(rows);
+
+    // 2. Fetch all student‑subject levels (needed to filter by current unlocked level)
+    const [levels] = await db.query(
+      'SELECT student_id, subject_id, level FROM student_subject_level'
+    );
+
+    // Build a map: key = "studentId_subjectId" → unlocked level
+    const levelMap = {};
+    levels.forEach(l => {
+      levelMap[`${l.student_id}_${l.subject_id}`] = l.level;
+    });
+
+    // 3. Filter rows: only keep attempts where quiz level ≤ student's unlocked level (default 1)
+    const filtered = rows.filter(r => {
+      const unlocked = levelMap[`${r.id}_${r.subject_id}`] ?? 1;
+      return r.level <= unlocked;
+    });
+
+    // 4. Aggregate the results
+    const studentMap = {};
+    filtered.forEach(r => {
+      if (!studentMap[r.id]) {
+        studentMap[r.id] = {
+          username: r.username,
+          grade: r.grade,
+          subjectSet: new Set(),
+          totalScore: 0,
+          count: 0
+        };
+      }
+      const stu = studentMap[r.id];
+      stu.subjectSet.add(r.subject_id);
+      stu.totalScore += (r.score / (r.total_questions || 1)) * 100;
+      stu.count += 1;
+    });
+
+    let leaderboard = Object.values(studentMap).map(s => ({
+      username: s.username,
+      grade: s.grade,
+      subject_count: s.subjectSet.size,
+      quiz_count: s.count,
+      Avg: (s.totalScore / s.count).toFixed(2),
+      T: s.totalScore.toFixed(2)
+    }));
+
+    // 5. Sort by quiz_count desc, then Avg desc, and take top 10
+    leaderboard.sort((a, b) => b.quiz_count - a.quiz_count || b.Avg - a.Avg);
+    leaderboard = leaderboard.slice(0, 10);
+
+    res.json(leaderboard);
   } catch (error) {
     console.error('Error in getLeaderboard:', error);
     res.status(500).json({ message: 'Server error', detail: error.message });
