@@ -183,15 +183,15 @@ exports.getLeaderboard = async (req, res) => {
       params.push(grade);
     }
 
-    // 1. Fetch all attempts on visible, non‑expired quizzes that match the student's grade
+    // 1. Fetch all attempts on visible, already-started, non‑expired quizzes for this grade
     const query = `
       SELECT u.id, u.username, u.grade,
-             qt.subject_id, qt.level,
+             qt.subject_id, qt.type_id, qt.level,    -- qt.type_id is needed to count distinct quizzes
              qa.score, qa.total_questions
       FROM users u
       JOIN quiz_attempts qa ON u.id = qa.student_id
       JOIN question_types qt ON qa.type_id = qt.id
-            WHERE u.role = 'student'${gradeCondition}
+      WHERE u.role = 'student'${gradeCondition}
         AND qt.is_visible = TRUE
         AND (qt.end_date IS NULL OR qt.end_date >= NOW())
         AND (qt.start_date IS NULL OR qt.start_date <= NOW())
@@ -199,25 +199,25 @@ exports.getLeaderboard = async (req, res) => {
     `;
 
     const [rows] = await db.query(query, params);
-    console.log('✅ New leaderboard code is running');
-    // 2. Fetch all student‑subject levels (needed to filter by current unlocked level)
+
+    // 2. Fetch student‑subject levels
     const [levels] = await db.query(
       'SELECT student_id, subject_id, level FROM student_subject_level'
     );
 
-    // Build a map: key = "studentId_subjectId" → unlocked level
+    // Build level map: "studentId_subjectId" → unlocked level
     const levelMap = {};
     levels.forEach(l => {
       levelMap[`${l.student_id}_${l.subject_id}`] = l.level;
     });
 
-    // 3. Filter rows: only keep attempts where quiz level ≤ student's unlocked level (default 1)
+    // 3. Filter out attempts where quiz level > student's unlocked level (default 1)
     const filtered = rows.filter(r => {
       const unlocked = levelMap[`${r.id}_${r.subject_id}`] ?? 1;
       return r.level <= unlocked;
     });
 
-    // 4. Aggregate the results
+    // 4. Aggregate: count distinct type_ids for quiz_count, calculate average over all attempts
     const studentMap = {};
     filtered.forEach(r => {
       if (!studentMap[r.id]) {
@@ -225,12 +225,14 @@ exports.getLeaderboard = async (req, res) => {
           username: r.username,
           grade: r.grade,
           subjectSet: new Set(),
+          quizTypeSet: new Set(),   // 👈 for distinct quizzes
           totalScore: 0,
-          count: 0
+          count: 0                   // total attempts (for average)
         };
       }
       const stu = studentMap[r.id];
       stu.subjectSet.add(r.subject_id);
+      stu.quizTypeSet.add(r.type_id);   // distinct quiz types
       stu.totalScore += (r.score / (r.total_questions || 1)) * 100;
       stu.count += 1;
     });
@@ -239,7 +241,7 @@ exports.getLeaderboard = async (req, res) => {
       username: s.username,
       grade: s.grade,
       subject_count: s.subjectSet.size,
-      quiz_count: s.count,
+      quiz_count: s.quizTypeSet.size,      // 👈 distinct quizzes
       Avg: (s.totalScore / s.count).toFixed(2),
       T: s.totalScore.toFixed(2)
     }));
