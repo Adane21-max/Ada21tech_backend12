@@ -198,7 +198,7 @@ exports.getLeaderboard = async (req, res) => {
     `;
 
     const [rows] = await db.query(query, params);
-
+    console.log('✅ New leaderboard code is running');
     // 2. Fetch all student‑subject levels (needed to filter by current unlocked level)
     const [levels] = await db.query(
       'SELECT student_id, subject_id, level FROM student_subject_level'
