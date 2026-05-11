@@ -183,7 +183,26 @@ exports.getLeaderboard = async (req, res) => {
       params.push(grade);
     }
 
-    const query = "SELECT u.username, u.grade, COUNT(DISTINCT qt.subject_id) AS subject_count, COUNT(qa.id) AS quiz_count, ROUND(AVG(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS Avg, ROUND(SUM(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS T FROM users u JOIN quiz_attempts qa ON u.id = qa.student_id JOIN question_types qt ON qa.type_id = qt.id LEFT JOIN student_subject_level ssl ON ssl.student_id = u.id AND ssl.subject_id = qt.subject_id WHERE u.role = 'student'" + gradeCondition + " AND qt.is_visible = TRUE AND (qt.end_date IS NULL OR qt.end_date >= NOW()) AND qt.grade = u.grade AND qt.level <= COALESCE(ssl.level, 1) GROUP BY u.id, u.username, u.grade HAVING quiz_count > 0 ORDER BY quiz_count DESC, Avg DESC LIMIT 10";
+    const query = `
+      SELECT 
+        u.username,
+        u.grade,
+        COUNT(DISTINCT qt.subject_id) AS subject_count,
+        COUNT(qa.id) AS quiz_count,
+        ROUND(AVG(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS Avg,
+        ROUND(SUM(qa.score / NULLIF(qa.total_questions, 0) * 100), 2) AS T
+      FROM users u
+      JOIN quiz_attempts qa ON u.id = qa.student_id
+      JOIN question_types qt ON qa.type_id = qt.id
+      WHERE u.role = 'student'${gradeCondition}
+        AND qt.is_visible = TRUE
+        AND (qt.end_date IS NULL OR qt.end_date >= NOW())
+        AND qt.grade = u.grade
+      GROUP BY u.id, u.username, u.grade
+      HAVING quiz_count > 0
+      ORDER BY quiz_count DESC, Avg DESC
+      LIMIT 10
+    `;
 
     const [rows] = await db.query(query, params);
     res.json(rows);
