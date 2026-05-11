@@ -174,27 +174,28 @@ exports.deleteStudent = async (req, res) => {
 // ✅ Get Top 10 Leaderboard – ranked by quiz_count (desc) then Avg (desc)
 exports.getLeaderboard = async (req, res) => {
   try {
-    const { grade,level } = req.query;
+    const { grade, level } = req.query;
     const params = [];
-    let gradeCondition = '';
+    let whereConditions = "u.role = 'student'";
 
     if (grade) {
-      gradeCondition = ' AND u.grade = ?';
+      whereConditions += ' AND u.grade = ?';
       params.push(grade);
     }
     if (level) {
-  gradeCondition += ' AND u.current_level = ?';
-  params.push(level);
-}
-    // 1. Fetch all attempts on visible, already-started, non‑expired quizzes for this grade
+      whereConditions += ' AND u.current_level = ?';
+      params.push(level);
+    }
+
+    // 1. Fetch all attempts on visible, non‑expired, already‑started quizzes for this grade and level
     const query = `
-      SELECT u.id, u.username, u.grade,
-             qt.subject_id, qt.id AS type_id, qt.level,    -- qt.type_id is needed to count distinct quizzes
+      SELECT u.id, u.username, u.grade, u.current_level,
+             qt.subject_id, qt.id AS type_id, qt.level,
              qa.score, qa.total_questions
       FROM users u
       JOIN quiz_attempts qa ON u.id = qa.student_id
       JOIN question_types qt ON qa.type_id = qt.id
-      WHERE u.role = 'student'${gradeCondition}
+      WHERE ${whereConditions}
         AND qt.is_visible = TRUE
         AND (qt.end_date IS NULL OR qt.end_date >= NOW())
         AND (qt.start_date IS NULL OR qt.start_date <= NOW())
@@ -208,7 +209,6 @@ exports.getLeaderboard = async (req, res) => {
       'SELECT student_id, subject_id, level FROM student_subject_level'
     );
 
-    // Build level map: "studentId_subjectId" → unlocked level
     const levelMap = {};
     levels.forEach(l => {
       levelMap[`${l.student_id}_${l.subject_id}`] = l.level;
@@ -220,7 +220,7 @@ exports.getLeaderboard = async (req, res) => {
       return r.level <= unlocked;
     });
 
-    // 4. Aggregate: count distinct type_ids for quiz_count, calculate average over all attempts
+    // 4. Aggregate
     const studentMap = {};
     filtered.forEach(r => {
       if (!studentMap[r.id]) {
@@ -228,14 +228,14 @@ exports.getLeaderboard = async (req, res) => {
           username: r.username,
           grade: r.grade,
           subjectSet: new Set(),
-          quizTypeSet: new Set(),   // 👈 for distinct quizzes
+          quizTypeSet: new Set(),
           totalScore: 0,
-          count: 0                   // total attempts (for average)
+          count: 0
         };
       }
       const stu = studentMap[r.id];
       stu.subjectSet.add(r.subject_id);
-      stu.quizTypeSet.add(r.type_id);   // distinct quiz types
+      stu.quizTypeSet.add(r.type_id);
       stu.totalScore += (r.score / (r.total_questions || 1)) * 100;
       stu.count += 1;
     });
@@ -244,12 +244,11 @@ exports.getLeaderboard = async (req, res) => {
       username: s.username,
       grade: s.grade,
       subject_count: s.subjectSet.size,
-      quiz_count: s.quizTypeSet.size,      // 👈 distinct quizzes
+      quiz_count: s.quizTypeSet.size,
       Avg: (s.totalScore / s.count).toFixed(2),
       T: s.totalScore.toFixed(2)
     }));
 
-    // 5. Sort by quiz_count desc, then Avg desc, and take top 10
     leaderboard.sort((a, b) => b.quiz_count - a.quiz_count || b.Avg - a.Avg);
     leaderboard = leaderboard.slice(0, 10);
 
