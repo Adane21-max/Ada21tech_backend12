@@ -191,9 +191,10 @@ exports.getLeaderboard = async (req, res) => {
       FROM users u
       JOIN quiz_attempts qa ON u.id = qa.student_id
       JOIN question_types qt ON qa.type_id = qt.id
-      WHERE u.role = 'student'${gradeCondition}
+            WHERE u.role = 'student'${gradeCondition}
         AND qt.is_visible = TRUE
         AND (qt.end_date IS NULL OR qt.end_date >= NOW())
+        AND (qt.start_date IS NULL OR qt.start_date <= NOW())
         AND qt.grade = u.grade
     `;
 
