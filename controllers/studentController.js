@@ -186,7 +186,7 @@ exports.getLeaderboard = async (req, res) => {
     // 1. Fetch all attempts on visible, already-started, non‑expired quizzes for this grade
     const query = `
       SELECT u.id, u.username, u.grade,
-             qt.subject_id, qt.type_id, qt.level,    -- qt.type_id is needed to count distinct quizzes
+             qt.subject_id, qt.id AS type_id, qt.level,    -- qt.type_id is needed to count distinct quizzes
              qa.score, qa.total_questions
       FROM users u
       JOIN quiz_attempts qa ON u.id = qa.student_id
