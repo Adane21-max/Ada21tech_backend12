@@ -194,10 +194,13 @@ exports.getLeaderboard = async (req, res) => {
       FROM users u
       JOIN quiz_attempts qa ON u.id = qa.student_id
       JOIN question_types qt ON qa.type_id = qt.id
+      LEFT JOIN student_subject_level ssl 
+        ON ssl.student_id = u.id AND ssl.subject_id = qt.subject_id
       WHERE u.role = 'student'${gradeCondition}
         AND qt.is_visible = TRUE
         AND (qt.end_date IS NULL OR qt.end_date >= NOW())
         AND qt.grade = u.grade
+        AND qt.level <= COALESCE(ssl.level, 1)
       GROUP BY u.id, u.username, u.grade
       HAVING quiz_count > 0
       ORDER BY quiz_count DESC, Avg DESC
