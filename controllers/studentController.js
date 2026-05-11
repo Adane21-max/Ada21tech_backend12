@@ -175,6 +175,7 @@ exports.deleteStudent = async (req, res) => {
 exports.getLeaderboard = async (req, res) => {
   try {
     const { grade, level } = req.query;
+    console.log('LEADERBOARD REQUEST – grade:', grade, 'level:', level);
     const params = [];
     let whereConditions = "u.role = 'student'";
 
