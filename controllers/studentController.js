@@ -174,7 +174,7 @@ exports.deleteStudent = async (req, res) => {
 // ✅ Get Top 10 Leaderboard – ranked by quiz_count (desc) then Avg (desc)
 exports.getLeaderboard = async (req, res) => {
   try {
-    const { grade } = req.query;
+    const { grade,level } = req.query;
     const params = [];
     let gradeCondition = '';
 
@@ -182,7 +182,10 @@ exports.getLeaderboard = async (req, res) => {
       gradeCondition = ' AND u.grade = ?';
       params.push(grade);
     }
-
+    if (level) {
+  gradeCondition += ' AND u.current_level = ?';
+  params.push(level);
+}
     // 1. Fetch all attempts on visible, already-started, non‑expired quizzes for this grade
     const query = `
       SELECT u.id, u.username, u.grade,
