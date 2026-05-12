@@ -192,7 +192,10 @@ const upgradeRequest = async (req, res) => {
     const [[u]] = await db.query('SELECT current_level FROM users WHERE id = ?', [sid]);
     if (!u) return res.status(400).json({msg:'User not found'});
     const lvl = u.current_level;
-    const [q] = await db.query('SELECT id FROM question_types WHERE grade=? AND level=? AND is_visible=1',[grd,lvl]);
+    const [q] = await db.query(
+  'SELECT id FROM question_types WHERE grade=? AND level=? AND is_visible=1 AND (start_date IS NULL OR start_date <= NOW()) AND (end_date IS NULL OR end_date >= NOW())',
+  [grd, lvl]
+);
     if (!q.length) return res.status(400).json({msg:'No quizzes'});
     const ids = q.map(r=>r.id);
     const [a] = await db.query('SELECT type_id,score,total_questions FROM quiz_attempts WHERE student_id=? AND type_id IN (?)',[sid,ids]);
