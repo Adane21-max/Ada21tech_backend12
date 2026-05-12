@@ -230,25 +230,29 @@ exports.getLeaderboard = async (req, res) => {
           grade: r.grade,
           subjectSet: new Set(),
           quizTypeSet: new Set(),
-          totalScore: 0,
+          totalPercent: 0,   // sum of (score/max * 100)
           count: 0
         };
       }
       const stu = studentMap[r.id];
       stu.subjectSet.add(r.subject_id);
       stu.quizTypeSet.add(r.type_id);
-      stu.totalScore += (r.score / (r.total_questions || 1)) * 100;
+      stu.totalPercent += (r.score / (r.total_questions || 1)) * 100;
       stu.count += 1;
     });
 
-    let leaderboard = Object.values(studentMap).map(s => ({
-      username: s.username,
-      grade: s.grade,
-      subject_count: s.subjectSet.size,
-      quiz_count: s.quizTypeSet.size,
-      Avg: (s.totalScore / s.count).toFixed(2),
-      T: s.totalScore.toFixed(2)
-    }));
+    let leaderboard = Object.values(studentMap).map(s => {
+      const avg = s.totalPercent / s.count;
+      return {
+        username: s.username,
+        grade: s.grade,
+        subject_count: s.subjectSet.size,
+        quiz_count: s.quizTypeSet.size,      // distinct quizzes
+        Avg: avg.toFixed(2),                 // simple average of percentages
+        // T is now Average × Quiz Count (normalized total)
+        T: (avg * s.quizTypeSet.size).toFixed(2)
+      };
+    });
 
     leaderboard.sort((a, b) => b.quiz_count - a.quiz_count || b.Avg - a.Avg);
     leaderboard = leaderboard.slice(0, 10);
