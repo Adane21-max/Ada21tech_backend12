@@ -192,18 +192,38 @@ const upgradeRequest = async (req, res) => {
     const [[u]] = await db.query('SELECT current_level FROM users WHERE id = ?', [sid]);
     if (!u) return res.status(400).json({msg:'User not found'});
     const lvl = u.current_level;
-    const [q] = await db.query(
-  'SELECT id FROM question_types WHERE grade=? AND level=? AND is_visible=1 AND (start_date IS NULL OR start_date <= NOW()) AND (end_date IS NULL OR end_date >= NOW())',
-  [grd, lvl]
-);
-    if (!q.length) return res.status(400).json({msg:'No quizzes'});
-    const ids = q.map(r=>r.id);
-    const [a] = await db.query('SELECT type_id,score,total_questions FROM quiz_attempts WHERE student_id=? AND type_id IN (?)',[sid,ids]);
-    if (a.length !== ids.length) return res.status(400).json({msg:'Complete all quizzes first'});
-    let sum=0;
-    a.forEach(r=> sum += (r.score/r.total_questions)*100);
-    const avg = sum/a.length;
-    if (avg < 50) return res.status(400).json({msg:`Avg ${avg.toFixed(1)}%, need 50%`});
+        // Count ONLY attempts on currently visible, non-expired quizzes
+    const [[countRow]] = await db.query(
+      `SELECT COUNT(qa.id) AS count
+       FROM quiz_attempts qa
+       JOIN question_types qt ON qa.type_id = qt.id
+       WHERE qa.student_id = ?
+         AND qt.is_visible = TRUE
+         AND (qt.end_date IS NULL OR qt.end_date >= NOW())`,
+      [sid]
+    );
+    const totalAttempted = countRow.count;
+
+    if (totalAttempted < 15) {
+      return res.status(400).json({
+        msg: `You have completed only ${totalAttempted} visible quiz(zes). Complete at least 15 to request an upgrade.`
+      });
+    }
+
+    // Calculate average from those SAME attempts
+    const [a] = await db.query(
+      `SELECT qa.score, qa.total_questions
+       FROM quiz_attempts qa
+       JOIN question_types qt ON qa.type_id = qt.id
+       WHERE qa.student_id = ?
+         AND qt.is_visible = TRUE
+         AND (qt.end_date IS NULL OR qt.end_date >= NOW())`,
+      [sid]
+    );
+    let sum = 0;
+    a.forEach(r => sum += (r.score / r.total_questions) * 100);
+    const avg = sum / a.length;
+    if (avg < 50) return res.status(400).json({ msg: `Avg ${avg.toFixed(1)}%, need 50%` });
     const [ex] = await db.query("SELECT id FROM upgrade_requests WHERE student_id=? AND subject_id = 0 AND status='pending'",[sid]);
     if (ex.length) return res.status(400).json({msg:'Pending already exists'});
 
