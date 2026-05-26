@@ -57,14 +57,15 @@ async function recalcAttemptsForType(typeId) {
   }
 }
 
-// Single create
+// ✅ Single create (with image support)
 exports.createQuestion = async (req, res) => {
   try {
     const { grade, level, type_id, question, optionA, optionB, optionC, optionD, correct_answer, explanation } = req.body;
+    const image = req.file ? req.file.filename : null;
     const [result] = await db.query(
-      `INSERT INTO questions (grade, level, type_id, question, optionA, optionB, optionC, optionD, correct_answer, explanation)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [grade, level, type_id, question, optionA, optionB, optionC, optionD, correct_answer, explanation]
+      `INSERT INTO questions (grade, level, type_id, question, optionA, optionB, optionC, optionD, correct_answer, explanation, image)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [grade, level, type_id, question, optionA, optionB, optionC, optionD, correct_answer, explanation, image]
     );
     res.status(201).json({ message: 'Question added', id: result.insertId });
   } catch (error) {
@@ -91,13 +92,12 @@ exports.getQuestions = async (req, res) => {
   }
 };
 
-// Update question – sanitized to avoid touching read-only fields, and auto‑recalc attempts
+// ✅ Update question (with image support)
 exports.updateQuestion = async (req, res) => {
   try {
     const { id } = req.params;
     const rawUpdates = req.body;
 
-    // Create a clean object with only allowed fields
     const updates = {};
     const allowedFields = ['question', 'optionA', 'optionB', 'optionC', 'optionD', 'correct_answer', 'explanation'];
 
@@ -107,14 +107,24 @@ exports.updateQuestion = async (req, res) => {
       }
     });
 
-    // Perform the update
-    const [result] = await db.query('UPDATE questions SET ? WHERE id = ?', [updates, id]);
+    if (req.file) {
+      updates.image = req.file.filename;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'No fields to update' });
+    }
+
+    const setClause = Object.keys(updates).map(key => `${key} = ?`).join(', ');
+    const values = Object.values(updates);
+    values.push(id);
+
+    const [result] = await db.query(`UPDATE questions SET ${setClause} WHERE id = ?`, values);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Question not found' });
     }
 
-    // ✅ If the correct answer was changed, recalc the whole quiz type
     if (rawUpdates.correct_answer !== undefined) {
       const [rows] = await db.query('SELECT type_id FROM questions WHERE id = ?', [id]);
       if (rows.length > 0) {
@@ -134,13 +144,11 @@ exports.deleteQuestion = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Before deleting, get the type_id so we can recalc after deletion
     const [rows] = await db.query('SELECT type_id FROM questions WHERE id = ?', [id]);
     const typeId = rows.length > 0 ? rows[0].type_id : null;
 
     await db.query('DELETE FROM questions WHERE id = ?', [id]);
 
-    // ✅ Recalculate attempts for the affected quiz type (if any)
     if (typeId) {
       await recalcAttemptsForType(typeId);
     }
