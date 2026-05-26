@@ -1,6 +1,8 @@
 // Question Routes 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
 const { authenticate, isAdmin } = require('../middleware/authMiddleware');
 const {
   createQuestion,
@@ -13,9 +15,9 @@ const { bulkCreateQuestions } = require('../controllers/questionController');
 // Public: get questions (filtered)
 router.get('/', getQuestions);
 
-// Admin only
-router.post('/', authenticate, isAdmin, createQuestion);
-router.put('/:id', authenticate, isAdmin, updateQuestion);
+// Admin only – with image upload
+router.post('/', authenticate, isAdmin, upload.single('image'), createQuestion);
+router.put('/:id', authenticate, isAdmin, upload.single('image'), updateQuestion);
 router.delete('/:id', authenticate, isAdmin, deleteQuestion);
 router.post('/bulk', authenticate, isAdmin, bulkCreateQuestions);
 
