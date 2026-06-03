@@ -16,7 +16,7 @@ router.get('/', authenticate, getLessonNotes);
 // Student: get single note by ID
 router.get('/:id', authenticate, getLessonNoteById);
 
-// Student: submit activity answer (save to lesson_attempts)
+// Student: submit activity answer
 router.post('/:id/submit', authenticate, submitActivity);
 
 // Admin only
