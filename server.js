@@ -109,6 +109,21 @@ async function initializeTables() {
     await db.query(`CREATE TABLE IF NOT EXISTS upgrade_requests (id INT AUTO_INCREMENT PRIMARY KEY, student_id INT NOT NULL, subject_id INT NULL, from_level INT NOT NULL, to_level INT NOT NULL, average_score DECIMAL(5,2) NOT NULL, status ENUM('pending','approved','rejected') DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE)`);
     console.log('✅ upgrade_requests table ready');
 
+    await db.query(`
+  CREATE TABLE IF NOT EXISTS lesson_notes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    grade INT NOT NULL,
+    subject_id INT NOT NULL,
+    level INT DEFAULT 1,
+    activity JSON NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+  )
+`);
+console.log('✅ lesson_notes table ready');
+
     // 🔧 Ensure payer_name / transaction_ref columns exist in upgrade_requests
     try {
       const [payerCol] = await db.query("SHOW COLUMNS FROM upgrade_requests LIKE 'payer_name'");
