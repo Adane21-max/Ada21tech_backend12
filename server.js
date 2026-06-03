@@ -160,6 +160,10 @@ app.use('/api/students', studentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/question-types', questionTypeRoutes);
 
+// Lesson Notes Routes
+const lessonNoteRoutes = require('./routes/lessonNotes');
+app.use('/api/lesson-notes', lessonNoteRoutes);
+
 // ==========================
 // ATTEMPT ROUTES (inline)
 // ==========================
