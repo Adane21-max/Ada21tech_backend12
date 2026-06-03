@@ -360,5 +360,13 @@ if (!fs.existsSync('uploads')) {
   fs.mkdirSync('uploads');
   console.log('✅ Created uploads folder');
 }
+app.get('/api/debug-db', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT DATABASE() as db');
+    res.json({ database: rows[0].db });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // START SERVER
 app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
