@@ -368,5 +368,25 @@ app.get('/api/debug-db', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+app.get('/api/create-lesson-notes-table', async (req, res) => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS lesson_notes (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        grade INT NOT NULL,
+        subject_id INT NOT NULL,
+        level INT DEFAULT 1,
+        activity JSON NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    res.send('✅ Table "lesson_notes" created successfully in the backend\'s database.');
+  } catch (err) {
+    res.status(500).send('❌ Error: ' + err.message);
+  }
+});
 // START SERVER
 app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
