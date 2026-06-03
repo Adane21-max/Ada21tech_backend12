@@ -362,8 +362,14 @@ if (!fs.existsSync('uploads')) {
 }
 app.get('/api/debug-db', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT DATABASE() as db');
-    res.json({ database: rows[0].db });
+    const [rows] = await db.query(`
+      SELECT
+        DATABASE() AS database_name,
+        @@hostname AS host_name,
+        @@port AS port_number
+    `);
+
+    res.json(rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
