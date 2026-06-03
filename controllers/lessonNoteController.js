@@ -1,5 +1,19 @@
 const db = require('../config/db');
 
+// Helper: safely parse activity (if string -> parse, else keep as is)
+function parseActivity(activity) {
+  if (!activity) return null;
+  if (typeof activity === 'string') {
+    try {
+      return JSON.parse(activity);
+    } catch (e) {
+      console.error('Failed to parse activity:', activity);
+      return null;
+    }
+  }
+  return activity;
+}
+
 // CREATE lesson note (admin)
 exports.createLessonNote = async (req, res) => {
   try {
@@ -10,7 +24,6 @@ exports.createLessonNote = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields: title, content, grade, subject_id' });
     }
 
-    // Convert activity to JSON string if present, else null
     let activityJson = null;
     if (activity && typeof activity === 'object') {
       activityJson = JSON.stringify(activity);
@@ -48,9 +61,9 @@ exports.getLessonNotes = async (req, res) => {
       params.push(level);
     }
     const [rows] = await db.query(query, params);
-    // parse activity JSON
+    // Parse activity safely (mysql2 may already parse JSON columns)
     rows.forEach(row => {
-      if (row.activity) row.activity = JSON.parse(row.activity);
+      row.activity = parseActivity(row.activity);
     });
     res.json(rows);
   } catch (error) {
@@ -65,7 +78,7 @@ exports.getLessonNoteById = async (req, res) => {
     const { id } = req.params;
     const [rows] = await db.query(`SELECT * FROM lesson_notes WHERE id = ?`, [id]);
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' });
-    if (rows[0].activity) rows[0].activity = JSON.parse(rows[0].activity);
+    rows[0].activity = parseActivity(rows[0].activity);
     res.json(rows[0]);
   } catch (error) {
     console.error('GET NOTE BY ID ERROR:', error);
