@@ -35,7 +35,6 @@ exports.getLessonNotes = async (req, res) => {
       params.push(level);
     }
     const [rows] = await db.query(query, params);
-    // parse activity JSON for each row
     rows.forEach(row => {
       if (row.activity) row.activity = JSON.parse(row.activity);
     });
@@ -92,7 +91,7 @@ exports.deleteLessonNote = async (req, res) => {
 // Submit activity (student) - save to lesson_attempts
 exports.submitActivity = async (req, res) => {
   try {
-    const { id } = req.params; // note_id
+    const { id } = req.params;
     const { score, answers } = req.body;
     const student_id = req.user.id;
     await db.query(
