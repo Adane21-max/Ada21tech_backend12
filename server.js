@@ -10,6 +10,14 @@ app.use('/uploads', express.static('uploads'));
 
 const db = require('./config/db');
 const { authenticate, isAdmin } = require('./middleware/authMiddleware');
+// ✅ ADD MULTER HERE
+const multer = require('multer');
+const path = require('path');
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+});
+const upload = multer({ storage });
 // =====================
 // AUTO-INITIALIZE ALL TABLES ON STARTUP
 // =====================
@@ -163,6 +171,11 @@ app.use('/api/question-types', questionTypeRoutes);
 // Lesson Notes Routes
 const lessonNoteRoutes = require('./routes/lessonNotes');
 app.use('/api/lesson-notes', lessonNoteRoutes);
+// ✅ ADD UPLOAD ROUTE
+app.post('/api/upload', authenticate, isAdmin, upload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+  res.json({ url: `/uploads/${req.file.filename}` });
+});
 
 // ==========================
 // ATTEMPT ROUTES (inline)
