@@ -4,15 +4,28 @@ const db = require('../config/db');
 exports.createLessonNote = async (req, res) => {
   try {
     const { title, content, grade, subject_id, level, activity } = req.body;
+
+    // Validate required fields
+    if (!title || !content || !grade || !subject_id) {
+      return res.status(400).json({ message: 'Missing required fields: title, content, grade, subject_id' });
+    }
+
+    // Convert activity to JSON string if present, else null
+    let activityJson = null;
+    if (activity && typeof activity === 'object') {
+      activityJson = JSON.stringify(activity);
+    }
+
     const [result] = await db.query(
       `INSERT INTO lesson_notes (title, content, grade, subject_id, level, activity)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [title, content, grade, subject_id, level || 1, activity ? JSON.stringify(activity) : null]
+      [title, content, grade, subject_id, level || 1, activityJson]
     );
+
     res.status(201).json({ message: 'Lesson note created', id: result.insertId });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+  } catch (error) {
+    console.error('CREATE LESSON NOTE ERROR:', error);
+    res.status(500).json({ message: error.message, sql: error.sql });
   }
 };
 
@@ -35,12 +48,13 @@ exports.getLessonNotes = async (req, res) => {
       params.push(level);
     }
     const [rows] = await db.query(query, params);
+    // parse activity JSON
     rows.forEach(row => {
       if (row.activity) row.activity = JSON.parse(row.activity);
     });
     res.json(rows);
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error('GET LESSON NOTES ERROR:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -53,8 +67,8 @@ exports.getLessonNoteById = async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ message: 'Not found' });
     if (rows[0].activity) rows[0].activity = JSON.parse(rows[0].activity);
     res.json(rows[0]);
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error('GET NOTE BY ID ERROR:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
@@ -64,15 +78,25 @@ exports.updateLessonNote = async (req, res) => {
   try {
     const { id } = req.params;
     const { title, content, grade, subject_id, level, activity } = req.body;
-    await db.query(
+
+    let activityJson = null;
+    if (activity && typeof activity === 'object') {
+      activityJson = JSON.stringify(activity);
+    }
+
+    const [result] = await db.query(
       `UPDATE lesson_notes SET title=?, content=?, grade=?, subject_id=?, level=?, activity=?
        WHERE id = ?`,
-      [title, content, grade, subject_id, level || 1, activity ? JSON.stringify(activity) : null, id]
+      [title, content, grade, subject_id, level || 1, activityJson, id]
     );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Lesson note not found' });
+    }
     res.json({ message: 'Lesson note updated' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+  } catch (error) {
+    console.error('UPDATE LESSON NOTE ERROR:', error);
+    res.status(500).json({ message: error.message });
   }
 };
 
@@ -82,13 +106,13 @@ exports.deleteLessonNote = async (req, res) => {
     const { id } = req.params;
     await db.query(`DELETE FROM lesson_notes WHERE id = ?`, [id]);
     res.json({ message: 'Lesson note deleted' });
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error('DELETE LESSON NOTE ERROR:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Submit activity (student) - save to lesson_attempts
+// Submit activity (student)
 exports.submitActivity = async (req, res) => {
   try {
     const { id } = req.params;
@@ -100,8 +124,8 @@ exports.submitActivity = async (req, res) => {
       [student_id, id, score || null, answers ? JSON.stringify(answers) : null]
     );
     res.json({ message: 'Activity submitted' });
-  } catch (err) {
-    console.error(err);
+  } catch (error) {
+    console.error('SUBMIT ACTIVITY ERROR:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
