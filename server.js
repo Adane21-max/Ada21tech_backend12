@@ -355,5 +355,10 @@ app.get('/api/ping', (req, res) => res.json({ message: 'pong', env: !!process.en
 // 404 HANDLER
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
 
+const fs = require('fs');
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads');
+  console.log('✅ Created uploads folder');
+}
 // START SERVER
 app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));
