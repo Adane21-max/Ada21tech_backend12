@@ -61,9 +61,8 @@ exports.getLessonNotes = async (req, res) => {
       params.push(level);
     }
     const [rows] = await db.query(query, params);
-    // Parse activity safely (mysql2 may already parse JSON columns)
     rows.forEach(row => {
-      row.activity = parseActivity(row.activity);
+      if (row.activity) row.activity = typeof row.activity === 'string' ? JSON.parse(row.activity) : row.activity;
     });
     res.json(rows);
   } catch (error) {
