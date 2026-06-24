@@ -10,13 +10,18 @@ const {
   deleteStudent,
   getLeaderboard,
   getMyLevels,
-  getCurrentLevel
+  getCurrentLevel,
+  getGradeReport,        // ✅ new
+  promoteStudent         // ✅ new
 } = require('../controllers/studentController');
 
 // Routes accessible by any authenticated student
 router.get('/leaderboard', authenticate, getLeaderboard);
 router.get('/my-levels', authenticate, getMyLevels);
 router.get('/current-level', authenticate, getCurrentLevel);
+
+// ✅ Grade report for a student (student can view their own; admin can view any)
+router.get('/:id/grade-report', authenticate, getGradeReport);
 
 // Admin‑only routes
 router.get('/', authenticate, isAdmin, getAllStudents);
@@ -25,5 +30,8 @@ router.put('/:id/approve', authenticate, isAdmin, approveStudent);
 router.put('/:id/reject', authenticate, isAdmin, rejectStudent);
 router.put('/:id/status', authenticate, isAdmin, updateStudentStatus);
 router.delete('/:id', authenticate, isAdmin, deleteStudent);
+
+// ✅ Admin: promote a student
+router.post('/admin/promote-student', authenticate, isAdmin, promoteStudent);
 
 module.exports = router;
