@@ -11,14 +11,23 @@ const {
   getLeaderboard,
   getMyLevels,
   getCurrentLevel,
-  getGradeReport,        // ✅ new
-  promoteStudent         // ✅ new
+  getGradeReport,
+  promoteStudent,
+  // ✅ NEW profile functions
+  getProfile,
+  updateProfile,
+  changePassword
 } = require('../controllers/studentController');
 
 // Routes accessible by any authenticated student
 router.get('/leaderboard', authenticate, getLeaderboard);
 router.get('/my-levels', authenticate, getMyLevels);
 router.get('/current-level', authenticate, getCurrentLevel);
+
+// ✅ Profile routes (authenticated student)
+router.get('/profile', authenticate, getProfile);
+router.put('/profile', authenticate, updateProfile);
+router.put('/password', authenticate, changePassword);
 
 // ✅ Grade report for a student (student can view their own; admin can view any)
 router.get('/:id/grade-report', authenticate, getGradeReport);
