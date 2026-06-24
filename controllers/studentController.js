@@ -392,3 +392,86 @@ exports.promoteStudent = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// ============================================================
+// ✅ NEW: Profile Management Functions
+// ============================================================
+
+// GET student profile (for editing)
+exports.getProfile = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT id, username, first_name, middle_name, last_name, grade, status 
+       FROM users WHERE id = ?`,
+      [req.user.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('GET PROFILE ERROR:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// UPDATE student profile (first_name, middle_name, last_name, username)
+exports.updateProfile = async (req, res) => {
+  try {
+    const { first_name, middle_name, last_name, username } = req.body;
+    const userId = req.user.id;
+
+    // Check if username is already taken (by another user)
+    if (username) {
+      const [existing] = await db.query('SELECT id FROM users WHERE username = ? AND id != ?', [username, userId]);
+      if (existing.length > 0) {
+        return res.status(400).json({ message: 'Username already taken' });
+      }
+    }
+
+    await db.query(
+      `UPDATE users SET 
+       first_name = ?, middle_name = ?, last_name = ?, username = ?
+       WHERE id = ?`,
+      [first_name || null, middle_name || null, last_name || null, username, userId]
+    );
+
+    // Fetch updated user to return
+    const [updated] = await db.query(
+      `SELECT id, username, first_name, middle_name, last_name, grade, status FROM users WHERE id = ?`,
+      [userId]
+    );
+    res.json({ message: 'Profile updated successfully', user: updated[0] });
+  } catch (err) {
+    console.error('UPDATE PROFILE ERROR:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// CHANGE password
+exports.changePassword = async (req, res) => {
+  try {
+    const { current_password, new_password } = req.body;
+    const userId = req.user.id;
+
+    if (!current_password || !new_password) {
+      return res.status(400).json({ message: 'Current and new password required' });
+    }
+
+    // Get current hashed password
+    const [rows] = await db.query('SELECT password FROM users WHERE id = ?', [userId]);
+    if (rows.length === 0) return res.status(404).json({ message: 'User not found' });
+
+    const bcrypt = require('bcrypt');
+    const valid = await bcrypt.compare(current_password, rows[0].password);
+    if (!valid) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    const hashed = await bcrypt.hash(new_password, 10);
+    await db.query('UPDATE users SET password = ? WHERE id = ?', [hashed, userId]);
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (err) {
+    console.error('CHANGE PASSWORD ERROR:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
