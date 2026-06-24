@@ -446,12 +446,12 @@ exports.updateProfile = async (req, res) => {
       [userId]
     );
     res.json({ message: 'Profile updated successfully', user: updated[0] });
-  } catch (err) {
+} catch (err) {
   console.error('UPDATE PROFILE ERROR:', err);
   res.status(500).json({ 
     message: 'Server error', 
-    error: err.message,   // 👈 now you'll see this
-    stack: err.stack      // 👈 and this
+    error: err.message,
+    stack: err.stack
   });
 }
 };
