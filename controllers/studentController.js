@@ -296,7 +296,6 @@ exports.getCurrentLevel = async (req, res) => {
 // ✅ NEW: Grade Report & Promotion Functions
 // ============================================================
 
-// GET grade report for a student
 exports.getGradeReport = async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
@@ -312,15 +311,13 @@ exports.getGradeReport = async (req, res) => {
     const [[student]] = await db.query('SELECT grade FROM users WHERE id = ?', [studentId]);
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    // Get all attempts for this student
+    // ✅ Fix: Simplified query – no need to join questions table
     const [attempts] = await db.query(
-      `SELECT qa.*, q.grade as question_grade, qt.name as quiz_name, s.name as subject_name
+      `SELECT qa.*, qt.name as quiz_name, s.name as subject_name
        FROM quiz_attempts qa
        JOIN question_types qt ON qa.type_id = qt.id
        JOIN subjects s ON qt.subject_id = s.id
-       JOIN questions q ON q.type_id = qt.id
        WHERE qa.student_id = ?
-       GROUP BY qa.id
        ORDER BY qa.created_at DESC`,
       [studentId]
     );
