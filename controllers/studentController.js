@@ -447,9 +447,13 @@ exports.updateProfile = async (req, res) => {
     );
     res.json({ message: 'Profile updated successfully', user: updated[0] });
   } catch (err) {
-    console.error('UPDATE PROFILE ERROR:', err);
-    res.status(500).json({ message: 'Server error' });
-  }
+  console.error('UPDATE PROFILE ERROR:', err);
+  res.status(500).json({ 
+    message: 'Server error', 
+    error: err.message,   // 👈 now you'll see this
+    stack: err.stack      // 👈 and this
+  });
+}
 };
 
 // CHANGE password
