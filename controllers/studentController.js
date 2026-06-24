@@ -291,3 +291,107 @@ exports.getCurrentLevel = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// ============================================================
+// ✅ NEW: Grade Report & Promotion Functions
+// ============================================================
+
+// GET grade report for a student
+exports.getGradeReport = async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id);
+    const requestingUserId = req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    // Students can only view their own report; admins can view any
+    if (!isAdmin && requestingUserId !== studentId) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Get student's current grade
+    const [[student]] = await db.query('SELECT grade FROM users WHERE id = ?', [studentId]);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    // Get all attempts for this student
+    const [attempts] = await db.query(
+      `SELECT qa.*, q.grade as question_grade, qt.name as quiz_name, s.name as subject_name
+       FROM quiz_attempts qa
+       JOIN question_types qt ON qa.type_id = qt.id
+       JOIN subjects s ON qt.subject_id = s.id
+       JOIN questions q ON q.type_id = qt.id
+       WHERE qa.student_id = ?
+       GROUP BY qa.id
+       ORDER BY qa.created_at DESC`,
+      [studentId]
+    );
+
+    // Build report
+    const report = {
+      student_id: studentId,
+      current_grade: student.grade,
+      total_quizzes: attempts.length,
+      subjects: {},
+      overall_avg: 0
+    };
+
+    let totalScore = 0;
+    attempts.forEach(attempt => {
+      const subject = attempt.subject_name;
+      if (!report.subjects[subject]) {
+        report.subjects[subject] = { total: 0, count: 0, avg: 0 };
+      }
+      const score = (attempt.score / attempt.total_questions) * 100;
+      report.subjects[subject].total += score;
+      report.subjects[subject].count++;
+      totalScore += score;
+    });
+
+    // Calculate averages
+    Object.keys(report.subjects).forEach(subject => {
+      report.subjects[subject].avg = Math.round(report.subjects[subject].total / report.subjects[subject].count);
+    });
+
+    report.overall_avg = attempts.length > 0 ? Math.round(totalScore / attempts.length) : 0;
+    report.next_grade = student.grade + 1;
+    report.recommended = report.overall_avg >= 50;
+
+    res.json(report);
+  } catch (err) {
+    console.error('GET GRADE REPORT ERROR:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Admin: promote a student
+exports.promoteStudent = async (req, res) => {
+  try {
+    const { student_id, promoted_to_grade, avg_score } = req.body;
+
+    if (!student_id || !promoted_to_grade) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Update user
+    await db.query(
+      `UPDATE users SET 
+       promoted_to_grade = ?, 
+       promotion_status = 'approved',
+       promotion_avg_score = ?,
+       promotion_date = NOW()
+       WHERE id = ?`,
+      [promoted_to_grade, avg_score || null, student_id]
+    );
+
+    // Save report
+    await db.query(
+      `INSERT INTO grade_reports (student_id, grade, avg_score, promoted)
+       VALUES (?, ?, ?, ?)`,
+      [student_id, promoted_to_grade, avg_score || 0, true]
+    );
+
+    res.json({ message: `Student promoted to Grade ${promoted_to_grade} successfully` });
+  } catch (err) {
+    console.error('PROMOTE STUDENT ERROR:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
