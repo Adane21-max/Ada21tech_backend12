@@ -355,7 +355,10 @@ exports.getGradeReport = async (req, res) => {
     res.json(report);
   } catch (err) {
     console.error('GET GRADE REPORT ERROR:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: 'Server error',
+    error: err.message,          // 👈 add this
+    stack: err.stack 
+    });
   }
 };
 
@@ -416,6 +419,9 @@ exports.getProfile = async (req, res) => {
 // UPDATE student profile (first_name, middle_name, last_name, username)
 exports.updateProfile = async (req, res) => {
   try {
+    console.log('updateProfile called with body:', req.body);
+    console.log('User ID:', req.user?.id);
+    
     const { first_name, middle_name, last_name, username } = req.body;
     const userId = req.user.id;
 
@@ -449,6 +455,7 @@ exports.updateProfile = async (req, res) => {
 // CHANGE password
 exports.changePassword = async (req, res) => {
   try {
+    
     const { current_password, new_password } = req.body;
     const userId = req.user.id;
 
