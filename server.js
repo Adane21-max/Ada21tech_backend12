@@ -408,6 +408,29 @@ app.get('/api/test-update', async (req, res) => {
   }
 });
 
+// =====================
+// DEBUG ROUTE – Check user data in database
+// =====================
+app.get('/api/debug-user', authenticate, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const [rows] = await db.query(
+      'SELECT id, username, first_name, middle_name, last_name FROM users WHERE id = ?',
+      [userId]
+    );
+    const [dbName] = await db.query('SELECT DATABASE() as db');
+    const [host] = await db.query('SELECT @@hostname as host');
+    res.json({ 
+      user: rows[0] || null,
+      database: dbName[0].db,
+      host: host[0].host,
+      userId: userId
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 404 HANDLER
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
 
