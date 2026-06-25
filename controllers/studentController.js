@@ -446,6 +446,10 @@ exports.updateProfile = async (req, res) => {
     // ✅ Start transaction
     await connection.beginTransaction();
 
+    // 🔍 DEBUG: Check if user exists before UPDATE
+    const [checkUser] = await connection.query('SELECT id FROM users WHERE id = ?', [userId]);
+    console.log('✅ User exists check:', checkUser);
+
     // ✅ Execute UPDATE within transaction
     const [result] = await connection.query(
       `UPDATE users SET 
