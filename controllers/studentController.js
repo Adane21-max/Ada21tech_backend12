@@ -424,6 +424,13 @@ exports.getProfile = async (req, res) => {
 // UPDATE student profile (first_name, middle_name, last_name, username)
 exports.updateProfile = async (req, res) => {
   try {
+    // 🔍 DEBUG: Check database and columns
+    const [dbName] = await db.query('SELECT DATABASE() as db');
+    console.log('✅ Connected to database:', dbName[0].db);
+
+    const [columns] = await db.query('SHOW COLUMNS FROM users');
+    console.log('📋 Columns in users table:', columns.map(c => c.Field).join(', '));
+
     console.log('updateProfile called with body:', req.body);
     console.log('User ID:', req.user?.id);
     
