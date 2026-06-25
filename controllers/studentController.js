@@ -331,8 +331,36 @@ exports.getGradeReport = async (req, res) => {
     );
 
     // Build report
+    exports.getGradeReport = async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id);
+    const requestingUserId = req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    // Students can only view their own report; admins can view any
+    if (!isAdmin && requestingUserId !== studentId) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // ✅ Get student's grade and name fields
+    const [[student]] = await db.query(
+      `SELECT grade, first_name, middle_name, last_name, created_at 
+       FROM users WHERE id = ?`,
+      [studentId]
+    );
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    // ... rest of the function (build report, etc.)
+
+    // Build report with name and formatted ID
     const report = {
       student_id: studentId,
+      // ✅ Add full name and formatted ID
+      student_name: `${student.first_name || ''} ${student.middle_name || ''} ${student.last_name || ''}`.trim(),
+      first_name: student.first_name,
+      middle_name: student.middle_name,
+      last_name: student.last_name,
+      created_at: student.created_at,
       current_grade: student.grade,
       total_quizzes: attempts.length,
       subjects: {},
