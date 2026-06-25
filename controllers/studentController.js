@@ -404,7 +404,7 @@ exports.promoteStudent = async (req, res) => {
 exports.getProfile = async (req, res) => {
   try {
     const [rows] = await db.query(
-      `SELECT id, username, first_name, middle_name, last_name, grade, status 
+      `SELECT id, username, first_name, middle_name, last_name, grade, status, created_at 
        FROM users WHERE id = ?`,
       [req.user.id]
     );
@@ -441,11 +441,12 @@ exports.updateProfile = async (req, res) => {
     );
 
     // Fetch updated user to return
-    const [updated] = await db.query(
-      `SELECT id, username, first_name, middle_name, last_name, grade, status FROM users WHERE id = ?`,
-      [userId]
-    );
-    res.json({ message: 'Profile updated successfully', user: updated[0] });
+const [updated] = await db.query(
+  `SELECT id, username, first_name, middle_name, last_name, grade, status, created_at 
+   FROM users WHERE id = ?`,
+  [userId]
+);
+res.json({ message: 'Profile updated successfully', user: updated[0] });
 } catch (err) {
   console.error('UPDATE PROFILE ERROR:', err);
   res.status(500).json({ 
