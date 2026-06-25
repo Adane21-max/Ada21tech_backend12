@@ -304,34 +304,8 @@ exports.getCurrentLevel = async (req, res) => {
 // Grade Report & Promotion Functions
 // ============================================================
 
+// GET grade report for a student
 exports.getGradeReport = async (req, res) => {
-  try {
-    const studentId = parseInt(req.params.id);
-    const requestingUserId = req.user.id;
-    const isAdmin = req.user.role === 'admin';
-
-    // Students can only view their own report; admins can view any
-    if (!isAdmin && requestingUserId !== studentId) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    // Get student's current grade
-    const [[student]] = await db.query('SELECT grade FROM users WHERE id = ?', [studentId]);
-    if (!student) return res.status(404).json({ message: 'Student not found' });
-
-    // Simplified query – no need to join questions table
-    const [attempts] = await db.query(
-      `SELECT qa.*, qt.name as quiz_name, s.name as subject_name
-       FROM quiz_attempts qa
-       JOIN question_types qt ON qa.type_id = qt.id
-       JOIN subjects s ON qt.subject_id = s.id
-       WHERE qa.student_id = ?
-       ORDER BY qa.created_at DESC`,
-      [studentId]
-    );
-
-    // Build report
-    exports.getGradeReport = async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
     const requestingUserId = req.user.id;
@@ -350,12 +324,20 @@ exports.getGradeReport = async (req, res) => {
     );
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    // ... rest of the function (build report, etc.)
+    // Get all quiz attempts for the student
+    const [attempts] = await db.query(
+      `SELECT qa.*, qt.name as quiz_name, s.name as subject_name
+       FROM quiz_attempts qa
+       JOIN question_types qt ON qa.type_id = qt.id
+       JOIN subjects s ON qt.subject_id = s.id
+       WHERE qa.student_id = ?
+       ORDER BY qa.created_at DESC`,
+      [studentId]
+    );
 
     // Build report with name and formatted ID
     const report = {
       student_id: studentId,
-      // ✅ Add full name and formatted ID
       student_name: `${student.first_name || ''} ${student.middle_name || ''} ${student.last_name || ''}`.trim(),
       first_name: student.first_name,
       middle_name: student.middle_name,
@@ -395,37 +377,71 @@ exports.getGradeReport = async (req, res) => {
   }
 };
 
-// Admin: promote a student
+// Admin: promote a student (UPDATED with better error handling)
 exports.promoteStudent = async (req, res) => {
+  let connection;
   try {
     const { student_id, promoted_to_grade, avg_score } = req.body;
 
+    console.log('Promote request:', { student_id, promoted_to_grade, avg_score });
+
     if (!student_id || !promoted_to_grade) {
-      return res.status(400).json({ message: 'Missing required fields' });
+      console.warn('Missing required fields:', { student_id, promoted_to_grade });
+      return res.status(400).json({ 
+        message: 'Missing required fields: student_id and promoted_to_grade are required' 
+      });
     }
 
-    // Update user
-    await db.query(
-      `UPDATE users SET 
-       promoted_to_grade = ?, 
-       promotion_status = 'approved',
-       promotion_avg_score = ?,
-       promotion_date = NOW()
-       WHERE id = ?`,
-      [promoted_to_grade, avg_score || null, student_id]
-    );
+    // Check if student exists
+    const [student] = await db.query('SELECT id, grade FROM users WHERE id = ?', [student_id]);
+    if (student.length === 0) {
+      return res.status(404).json({ message: 'Student not found' });
+    }
 
-    // Save report
-    await db.query(
-      `INSERT INTO grade_reports (student_id, grade, avg_score, promoted)
-       VALUES (?, ?, ?, ?)`,
-      [student_id, promoted_to_grade, avg_score || 0, true]
-    );
+    // ✅ Use transaction for data consistency
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
-    res.json({ message: `Student promoted to Grade ${promoted_to_grade} successfully` });
+    try {
+      // Update user
+      await connection.query(
+        `UPDATE users SET 
+         promoted_to_grade = ?, 
+         promotion_status = 'approved',
+         promotion_avg_score = ?,
+         promotion_date = NOW()
+         WHERE id = ?`,
+        [promoted_to_grade, avg_score || null, student_id]
+      );
+
+      // Save report
+      await connection.query(
+        `INSERT INTO grade_reports (student_id, grade, avg_score, promoted)
+         VALUES (?, ?, ?, ?)`,
+        [student_id, promoted_to_grade, avg_score || 0, true]
+      );
+
+      await connection.commit();
+      connection.release();
+
+      res.json({ 
+        message: `Student promoted to Grade ${promoted_to_grade} successfully`,
+        student_id,
+        promoted_to_grade,
+        avg_score: avg_score || 0
+      });
+    } catch (err) {
+      await connection.rollback();
+      connection.release();
+      throw err;
+    }
   } catch (err) {
     console.error('PROMOTE STUDENT ERROR:', err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: err.message,
+      stack: err.stack 
+    });
   }
 };
 
