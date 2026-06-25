@@ -397,6 +397,17 @@ app.get('/api/admin/sync-student-visibility', async (req, res) => {
 app.get('/', (req, res) => res.send('Ada21Tech API is running...'));
 app.get('/api/ping', (req, res) => res.json({ message: 'pong', env: !!process.env.JWT_SECRET, db: !!process.env.MYSQLHOST }));
 
+app.get('/api/test-update', async (req, res) => {
+  try {
+    const [result] = await db.query(
+      "UPDATE users SET first_name = 'Test' WHERE id = 1320"
+    );
+    res.json({ result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 404 HANDLER
 app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
 
