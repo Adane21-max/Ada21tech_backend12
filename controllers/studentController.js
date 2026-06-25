@@ -1,5 +1,9 @@
 const db = require('../config/db');
 
+// ============================================================
+// Student Management Functions
+// ============================================================
+
 // Get all students (basic info only)
 exports.getAllStudents = async (req, res) => {
   try {
@@ -13,7 +17,7 @@ exports.getAllStudents = async (req, res) => {
   }
 };
 
-// ✅ Approve a student + seed Level 1 for all subjects in their grade
+// Approve a student + seed Level 1 for all subjects in their grade
 exports.approveStudent = async (req, res) => {
   try {
     const { id } = req.params;
@@ -133,7 +137,7 @@ exports.getStudentsWithQuizTypeCount = async (req, res) => {
   }
 };
 
-// ✅ Delete a student + all related records (including new upgrade tables)
+// Delete a student + all related records (including new upgrade tables)
 exports.deleteStudent = async (req, res) => {
   const { id } = req.params;
   const connection = await db.getConnection();
@@ -171,7 +175,11 @@ exports.deleteStudent = async (req, res) => {
   }
 };
 
-// ✅ Get Top 10 Leaderboard – ranked by quiz_count (desc) then Avg (desc)
+// ============================================================
+// Leaderboard & Level Functions
+// ============================================================
+
+// Get Top 10 Leaderboard – ranked by quiz_count (desc) then Avg (desc)
 exports.getLeaderboard = async (req, res) => {
   try {
     const { grade, level } = req.query;
@@ -293,7 +301,7 @@ exports.getCurrentLevel = async (req, res) => {
 };
 
 // ============================================================
-// ✅ NEW: Grade Report & Promotion Functions
+// Grade Report & Promotion Functions
 // ============================================================
 
 exports.getGradeReport = async (req, res) => {
@@ -311,7 +319,7 @@ exports.getGradeReport = async (req, res) => {
     const [[student]] = await db.query('SELECT grade FROM users WHERE id = ?', [studentId]);
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    // ✅ Fix: Simplified query – no need to join questions table
+    // Simplified query – no need to join questions table
     const [attempts] = await db.query(
       `SELECT qa.*, qt.name as quiz_name, s.name as subject_name
        FROM quiz_attempts qa
@@ -355,10 +363,7 @@ exports.getGradeReport = async (req, res) => {
     res.json(report);
   } catch (err) {
     console.error('GET GRADE REPORT ERROR:', err);
-    res.status(500).json({ message: 'Server error',
-    error: err.message,          // 👈 add this
-    stack: err.stack 
-    });
+    res.status(500).json({ message: 'Server error', error: err.message, stack: err.stack });
   }
 };
 
@@ -397,7 +402,7 @@ exports.promoteStudent = async (req, res) => {
 };
 
 // ============================================================
-// ✅ NEW: Profile Management Functions
+// ✅ Profile Management Functions (Updated with created_at)
 // ============================================================
 
 // GET student profile (for editing)
@@ -440,27 +445,26 @@ exports.updateProfile = async (req, res) => {
       [first_name || null, middle_name || null, last_name || null, username, userId]
     );
 
-    // Fetch updated user to return
-const [updated] = await db.query(
-  `SELECT id, username, first_name, middle_name, last_name, grade, status, created_at 
-   FROM users WHERE id = ?`,
-  [userId]
-);
-res.json({ message: 'Profile updated successfully', user: updated[0] });
-} catch (err) {
-  console.error('UPDATE PROFILE ERROR:', err);
-  res.status(500).json({ 
-    message: 'Server error', 
-    error: err.message,
-    stack: err.stack
-  });
-}
+    // ✅ Fetch updated user with created_at
+    const [updated] = await db.query(
+      `SELECT id, username, first_name, middle_name, last_name, grade, status, created_at 
+       FROM users WHERE id = ?`,
+      [userId]
+    );
+    res.json({ message: 'Profile updated successfully', user: updated[0] });
+  } catch (err) {
+    console.error('UPDATE PROFILE ERROR:', err);
+    res.status(500).json({ 
+      message: 'Server error', 
+      error: err.message,
+      stack: err.stack 
+    });
+  }
 };
 
 // CHANGE password
 exports.changePassword = async (req, res) => {
   try {
-    
     const { current_password, new_password } = req.body;
     const userId = req.user.id;
 
