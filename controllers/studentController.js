@@ -423,43 +423,61 @@ exports.getProfile = async (req, res) => {
 
 // UPDATE student profile (first_name, middle_name, last_name, username)
 exports.updateProfile = async (req, res) => {
+  let connection;
   try {
-    // 🔍 DEBUG: Check database and columns
-    const [dbName] = await db.query('SELECT DATABASE() as db');
-    console.log('✅ Connected to database:', dbName[0].db);
-
-    const [columns] = await db.query('SHOW COLUMNS FROM users');
-    console.log('📋 Columns in users table:', columns.map(c => c.Field).join(', '));
-
     console.log('updateProfile called with body:', req.body);
     console.log('User ID:', req.user?.id);
+    
+    // ✅ Get a connection from the pool
+    connection = await db.getConnection();
     
     const { first_name, middle_name, last_name, username } = req.body;
     const userId = req.user.id;
 
     // Check if username is already taken (by another user)
     if (username) {
-      const [existing] = await db.query('SELECT id FROM users WHERE username = ? AND id != ?', [username, userId]);
+      const [existing] = await connection.query('SELECT id FROM users WHERE username = ? AND id != ?', [username, userId]);
       if (existing.length > 0) {
+        connection.release();
         return res.status(400).json({ message: 'Username already taken' });
       }
     }
 
-    await db.query(
+    // ✅ Start transaction
+    await connection.beginTransaction();
+
+    // ✅ Execute UPDATE within transaction
+    const [result] = await connection.query(
       `UPDATE users SET 
        first_name = ?, middle_name = ?, last_name = ?, username = ?
        WHERE id = ?`,
       [first_name || null, middle_name || null, last_name || null, username, userId]
     );
 
-    // ✅ Fetch updated user with created_at
-    const [updated] = await db.query(
+    console.log('✅ UPDATE result:', result);
+    console.log('✅ Affected rows:', result.affectedRows);
+    console.log('✅ Changed rows:', result.changedRows);
+
+    // ✅ Commit the transaction
+    await connection.commit();
+
+    // Fetch updated user with created_at
+    const [updated] = await connection.query(
       `SELECT id, username, first_name, middle_name, last_name, grade, status, created_at 
        FROM users WHERE id = ?`,
       [userId]
     );
+
+    console.log('✅ After UPDATE (from DB):', updated[0]);
+
+    connection.release();
     res.json({ message: 'Profile updated successfully', user: updated[0] });
   } catch (err) {
+    // ✅ Rollback on error
+    if (connection) {
+      await connection.rollback();
+      connection.release();
+    }
     console.error('UPDATE PROFILE ERROR:', err);
     res.status(500).json({ 
       message: 'Server error', 
