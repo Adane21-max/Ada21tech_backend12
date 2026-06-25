@@ -155,6 +155,36 @@ console.log('✅ lesson_notes table ready');
     } catch (err) {
       console.error('❌ Failed to ensure current_level column:', err.message);
     }
+        // ============================================================
+    // Ensure profile columns exist (first_name, middle_name, last_name)
+    // ============================================================
+    try {
+      const [fNameCol] = await db.query("SHOW COLUMNS FROM users LIKE 'first_name'");
+      if (fNameCol.length === 0) {
+        await db.query("ALTER TABLE users ADD COLUMN first_name VARCHAR(100) DEFAULT NULL");
+        console.log('✅ Added first_name column to users');
+      } else {
+        console.log('✅ first_name column already exists in users');
+      }
+
+      const [mNameCol] = await db.query("SHOW COLUMNS FROM users LIKE 'middle_name'");
+      if (mNameCol.length === 0) {
+        await db.query("ALTER TABLE users ADD COLUMN middle_name VARCHAR(100) DEFAULT NULL");
+        console.log('✅ Added middle_name column to users');
+      } else {
+        console.log('✅ middle_name column already exists in users');
+      }
+
+      const [lNameCol] = await db.query("SHOW COLUMNS FROM users LIKE 'last_name'");
+      if (lNameCol.length === 0) {
+        await db.query("ALTER TABLE users ADD COLUMN last_name VARCHAR(100) DEFAULT NULL");
+        console.log('✅ Added last_name column to users');
+      } else {
+        console.log('✅ last_name column already exists in users');
+      }
+    } catch (err) {
+      console.error('❌ Failed to ensure profile columns:', err.message);
+    }
     console.log('✅ admin user verified');
   } catch (err) {
     console.error('❌ Table initialization error:', err.message);
