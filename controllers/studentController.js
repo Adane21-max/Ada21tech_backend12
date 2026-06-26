@@ -326,33 +326,28 @@ exports.getGradeReport = async (req, res) => {
 
     // Get all quiz attempts for the student
     const [attempts] = await db.query(
-  `SELECT qa.*, qt.name as quiz_name, s.name as subject_name, s.grade as subject_grade
-   FROM quiz_attempts qa
-   JOIN question_types qt ON qa.type_id = qt.id
-   JOIN subjects s ON qt.subject_id = s.id
-   WHERE qa.student_id = ?
-   ORDER BY qa.created_at DESC`,
-  [studentId]
-);
-// Determine report grade from subject(s) of attempts (if any)
-let reportGrade = student.grade; // fallback
-if (attempts.length > 0) {
-  // Use the grade of the first subject (all subjects should be same grade)
-  reportGrade = attempts[0].subject_grade;
-}
-    // Build report with name and formatted ID
+      `SELECT qa.*, qt.name as quiz_name, s.name as subject_name, s.grade as subject_grade
+       FROM quiz_attempts qa
+       JOIN question_types qt ON qa.type_id = qt.id
+       JOIN subjects s ON qt.subject_id = s.id
+       WHERE qa.student_id = ?
+       ORDER BY qa.created_at DESC`,
+      [studentId]
+    );
+
+    // ✅ Build report – use student's actual grade for current_grade and next_grade
     const report = {
-  student_id: studentId,
-  student_name: `${student.first_name || ''} ${student.middle_name || ''} ${student.last_name || ''}`.trim(),
-  first_name: student.first_name,
-  middle_name: student.middle_name,
-  last_name: student.last_name,
-  created_at: student.created_at,
-  current_grade: reportGrade,        
-  total_quizzes: attempts.length,
-  subjects: {},
-  overall_avg: 0
-};
+      student_id: studentId,
+      student_name: `${student.first_name || ''} ${student.middle_name || ''} ${student.last_name || ''}`.trim(),
+      first_name: student.first_name,
+      middle_name: student.middle_name,
+      last_name: student.last_name,
+      created_at: student.created_at,
+      current_grade: student.grade,           // ✅ Student's actual current grade
+      total_quizzes: attempts.length,
+      subjects: {},
+      overall_avg: 0
+    };
 
     let totalScore = 0;
     attempts.forEach(attempt => {
@@ -372,7 +367,7 @@ if (attempts.length > 0) {
     });
 
     report.overall_avg = attempts.length > 0 ? Math.round(totalScore / attempts.length) : 0;
-    report.next_grade = reportGrade + 1;
+    report.next_grade = student.grade + 1;     // ✅ Based on student's actual grade
     report.recommended = report.overall_avg >= 50;
 
     res.json(report);
