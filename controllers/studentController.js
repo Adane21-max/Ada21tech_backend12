@@ -406,7 +406,7 @@ exports.promoteStudent = async (req, res) => {
       // Update user
       await connection.query(
   `UPDATE users SET 
-   grade = ?,                      // ✅ Set the actual grade
+   grade = ?,                      
    promoted_to_grade = ?, 
    promotion_status = 'approved',
    promotion_avg_score = ?,
