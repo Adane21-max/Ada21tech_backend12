@@ -344,6 +344,7 @@ exports.getGradeReport = async (req, res) => {
       last_name: student.last_name,
       created_at: student.created_at,
       current_grade: student.grade,           // ✅ Student's actual current grade
+      report_grade: filterGrade,
       total_quizzes: attempts.length,
       subjects: {},
       overall_avg: 0
