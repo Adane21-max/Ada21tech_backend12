@@ -224,6 +224,12 @@ try {
 
 console.log('✅ admin user verified');
 
+  } catch (err) {
+    console.error('❌ Table initialization error:', err.message);
+  }
+}
+initializeTables();
+
 // =====================
 // ROUTES (external)
 // =====================
