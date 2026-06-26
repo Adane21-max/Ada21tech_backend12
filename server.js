@@ -121,6 +121,22 @@ async function initializeTables() {
 `);
 console.log('✅ lesson_notes table ready');
 
+    // ============================================================
+// Grade Reports table
+// ============================================================
+await db.query(`
+  CREATE TABLE IF NOT EXISTS grade_reports (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    grade INT NOT NULL,
+    avg_score DECIMAL(5,2) NOT NULL,
+    promoted BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE
+  )
+`);
+console.log('✅ grade_reports table ready');
+    
     // 🔧 Ensure payer_name / transaction_ref columns exist in upgrade_requests
     try {
       const [payerCol] = await db.query("SHOW COLUMNS FROM upgrade_requests LIKE 'payer_name'");
