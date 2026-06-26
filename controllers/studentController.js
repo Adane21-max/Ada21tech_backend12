@@ -452,6 +452,77 @@ exports.promoteStudent = async (req, res) => {
 };
 
 // ============================================================
+// Get all grade reports history (grouped by subject grade)
+// ============================================================
+exports.getGradeReportHistory = async (req, res) => {
+  try {
+    const studentId = parseInt(req.params.id);
+    const requestingUserId = req.user.id;
+    const isAdmin = req.user.role === 'admin';
+
+    if (!isAdmin && requestingUserId !== studentId) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const [attempts] = await db.query(
+      `SELECT qa.*, s.grade as subject_grade, s.name as subject_name, qt.name as quiz_name
+       FROM quiz_attempts qa
+       JOIN question_types qt ON qa.type_id = qt.id
+       JOIN subjects s ON qt.subject_id = s.id
+       WHERE qa.student_id = ?
+       ORDER BY qa.created_at DESC`,
+      [studentId]
+    );
+
+    if (attempts.length === 0) {
+      return res.json({ history: [] });
+    }
+
+    // Group attempts by subject_grade
+    const groupedByGrade = {};
+    attempts.forEach(a => {
+      const grade = a.subject_grade;
+      if (!groupedByGrade[grade]) groupedByGrade[grade] = [];
+      groupedByGrade[grade].push(a);
+    });
+
+    const history = Object.keys(groupedByGrade).map(grade => {
+      const gradeAttempts = groupedByGrade[grade];
+      let totalScore = 0;
+      const subjects = {};
+      gradeAttempts.forEach(a => {
+        const subject = a.subject_name;
+        if (!subjects[subject]) subjects[subject] = { total: 0, count: 0 };
+        const score = (a.score / a.total_questions) * 100;
+        subjects[subject].total += score;
+        subjects[subject].count++;
+        totalScore += score;
+      });
+      const overallAvg = Math.round(totalScore / gradeAttempts.length);
+      const subjectAverages = {};
+      Object.keys(subjects).forEach(sub => {
+        subjectAverages[sub] = Math.round(subjects[sub].total / subjects[sub].count);
+      });
+      return {
+        grade: parseInt(grade),
+        total_quizzes: gradeAttempts.length,
+        overall_avg: overallAvg,
+        subjects: subjectAverages,
+        first_attempt: new Date(Math.min(...gradeAttempts.map(a => new Date(a.created_at)))).toISOString(),
+        last_attempt: new Date(Math.max(...gradeAttempts.map(a => new Date(a.created_at)))).toISOString(),
+      };
+    });
+
+    // Sort by grade ascending (8,9,10...)
+    history.sort((a, b) => a.grade - b.grade);
+
+    res.json({ history });
+  } catch (err) {
+    console.error('GET GRADE HISTORY ERROR:', err);
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+// ============================================================
 // ✅ Profile Management Functions (Updated with created_at)
 // ============================================================
 
