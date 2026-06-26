@@ -12,6 +12,7 @@ const {
   getMyLevels,
   getCurrentLevel,
   getGradeReport,
+  getGradeReportHistory,   // ✅ NEW: history endpoint
   promoteStudent,
   // ✅ NEW profile functions
   getProfile,
@@ -31,6 +32,9 @@ router.put('/password', authenticate, changePassword);
 
 // ✅ Grade report for a student (student can view their own; admin can view any)
 router.get('/:id/grade-report', authenticate, getGradeReport);
+
+// ✅ NEW: Grade report history (grouped by subject grade)
+router.get('/:id/grade-history', authenticate, getGradeReportHistory);
 
 // Admin‑only routes
 router.get('/', authenticate, isAdmin, getAllStudents);
