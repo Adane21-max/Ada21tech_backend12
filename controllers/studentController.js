@@ -304,14 +304,13 @@ exports.getCurrentLevel = async (req, res) => {
 // Grade Report & Promotion Functions
 // ============================================================
 
-// GET grade report for a student
+// GET grade report for a student (supports ?grade=X query)
 exports.getGradeReport = async (req, res) => {
   try {
     const studentId = parseInt(req.params.id);
     const requestingUserId = req.user.id;
     const isAdmin = req.user.role === 'admin';
 
-    // Students can only view their own report; admins can view any
     if (!isAdmin && requestingUserId !== studentId) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -324,18 +323,24 @@ exports.getGradeReport = async (req, res) => {
     );
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
-    // Get all quiz attempts for the student
+    // ✅ Get optional grade filter from query string
+    const requestedGrade = req.query.grade ? parseInt(req.query.grade) : null;
+
+    // ✅ Determine which grade to filter by (default to student's current grade)
+    const filterGrade = requestedGrade || student.grade;
+
+    // ✅ Fetch attempts for that grade
     const [attempts] = await db.query(
       `SELECT qa.*, qt.name as quiz_name, s.name as subject_name, s.grade as subject_grade
        FROM quiz_attempts qa
        JOIN question_types qt ON qa.type_id = qt.id
        JOIN subjects s ON qt.subject_id = s.id
-       WHERE qa.student_id = ?
+       WHERE qa.student_id = ? AND s.grade = ?
        ORDER BY qa.created_at DESC`,
-      [studentId]
+      [studentId, filterGrade]
     );
 
-    // ✅ Build report – use student's actual grade for current_grade and next_grade
+    // Build report
     const report = {
       student_id: studentId,
       student_name: `${student.first_name || ''} ${student.middle_name || ''} ${student.last_name || ''}`.trim(),
@@ -343,8 +348,8 @@ exports.getGradeReport = async (req, res) => {
       middle_name: student.middle_name,
       last_name: student.last_name,
       created_at: student.created_at,
-      current_grade: student.grade,           // ✅ Student's actual current grade
-      report_grade: filterGrade,
+      current_grade: student.grade,           // Student's actual current grade
+      report_grade: filterGrade,              // The grade this report covers
       total_quizzes: attempts.length,
       subjects: {},
       overall_avg: 0
@@ -362,13 +367,12 @@ exports.getGradeReport = async (req, res) => {
       totalScore += score;
     });
 
-    // Calculate averages
     Object.keys(report.subjects).forEach(subject => {
       report.subjects[subject].avg = Math.round(report.subjects[subject].total / report.subjects[subject].count);
     });
 
     report.overall_avg = attempts.length > 0 ? Math.round(totalScore / attempts.length) : 0;
-    report.next_grade = student.grade + 1;     // ✅ Based on student's actual grade
+    report.next_grade = student.grade + 1;     // Based on actual current grade
     report.recommended = report.overall_avg >= 50;
 
     res.json(report);
