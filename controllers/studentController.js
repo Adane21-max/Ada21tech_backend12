@@ -405,14 +405,15 @@ exports.promoteStudent = async (req, res) => {
     try {
       // Update user
       await connection.query(
-        `UPDATE users SET 
-         promoted_to_grade = ?, 
-         promotion_status = 'approved',
-         promotion_avg_score = ?,
-         promotion_date = NOW()
-         WHERE id = ?`,
-        [promoted_to_grade, avg_score || null, student_id]
-      );
+  `UPDATE users SET 
+   grade = ?,                      // ✅ Set the actual grade
+   promoted_to_grade = ?, 
+   promotion_status = 'approved',
+   promotion_avg_score = ?,
+   promotion_date = NOW()
+   WHERE id = ?`,
+  [promoted_to_grade, promoted_to_grade, avg_score || null, student_id]
+);
 
       // Save report
       await connection.query(
