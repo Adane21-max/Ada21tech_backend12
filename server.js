@@ -105,9 +105,6 @@ async function initializeTables() {
     // Upgrade requests
     await db.query(`CREATE TABLE IF NOT EXISTS upgrade_requests (id INT AUTO_INCREMENT PRIMARY KEY, student_id INT NOT NULL, subject_id INT NULL, from_level INT NOT NULL, to_level INT NOT NULL, average_score DECIMAL(5,2) NOT NULL, status ENUM('pending','approved','rejected') DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE)`);
     console.log('✅ upgrade_requests table ready');
-    // Upgrade requests
-    await db.query(`CREATE TABLE IF NOT EXISTS upgrade_requests (id INT AUTO_INCREMENT PRIMARY KEY, student_id INT NOT NULL, subject_id INT NULL, from_level INT NOT NULL, to_level INT NOT NULL, average_score DECIMAL(5,2) NOT NULL, status ENUM('pending','approved','rejected') DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE)`);
-    console.log('✅ upgrade_requests table ready');
 
     await db.query(`
   CREATE TABLE IF NOT EXISTS lesson_notes (
@@ -155,42 +152,77 @@ console.log('✅ lesson_notes table ready');
     } catch (err) {
       console.error('❌ Failed to ensure current_level column:', err.message);
     }
-        // ============================================================
-    // Ensure profile columns exist (first_name, middle_name, last_name)
     // ============================================================
-    try {
-      const [fNameCol] = await db.query("SHOW COLUMNS FROM users LIKE 'first_name'");
-      if (fNameCol.length === 0) {
-        await db.query("ALTER TABLE users ADD COLUMN first_name VARCHAR(100) DEFAULT NULL");
-        console.log('✅ Added first_name column to users');
-      } else {
-        console.log('✅ first_name column already exists in users');
-      }
-
-      const [mNameCol] = await db.query("SHOW COLUMNS FROM users LIKE 'middle_name'");
-      if (mNameCol.length === 0) {
-        await db.query("ALTER TABLE users ADD COLUMN middle_name VARCHAR(100) DEFAULT NULL");
-        console.log('✅ Added middle_name column to users');
-      } else {
-        console.log('✅ middle_name column already exists in users');
-      }
-
-      const [lNameCol] = await db.query("SHOW COLUMNS FROM users LIKE 'last_name'");
-      if (lNameCol.length === 0) {
-        await db.query("ALTER TABLE users ADD COLUMN last_name VARCHAR(100) DEFAULT NULL");
-        console.log('✅ Added last_name column to users');
-      } else {
-        console.log('✅ last_name column already exists in users');
-      }
-    } catch (err) {
-      console.error('❌ Failed to ensure profile columns:', err.message);
-    }
-    console.log('✅ admin user verified');
-  } catch (err) {
-    console.error('❌ Table initialization error:', err.message);
+// Ensure profile columns exist (first_name, middle_name, last_name)
+// ============================================================
+try {
+  const [fNameCol] = await db.query("SHOW COLUMNS FROM users LIKE 'first_name'");
+  if (fNameCol.length === 0) {
+    await db.query("ALTER TABLE users ADD COLUMN first_name VARCHAR(100) DEFAULT NULL");
+    console.log('✅ Added first_name column to users');
+  } else {
+    console.log('✅ first_name column already exists in users');
   }
+
+  const [mNameCol] = await db.query("SHOW COLUMNS FROM users LIKE 'middle_name'");
+  if (mNameCol.length === 0) {
+    await db.query("ALTER TABLE users ADD COLUMN middle_name VARCHAR(100) DEFAULT NULL");
+    console.log('✅ Added middle_name column to users');
+  } else {
+    console.log('✅ middle_name column already exists in users');
+  }
+
+  const [lNameCol] = await db.query("SHOW COLUMNS FROM users LIKE 'last_name'");
+  if (lNameCol.length === 0) {
+    await db.query("ALTER TABLE users ADD COLUMN last_name VARCHAR(100) DEFAULT NULL");
+    console.log('✅ Added last_name column to users');
+  } else {
+    console.log('✅ last_name column already exists in users');
+  }
+} catch (err) {
+  console.error('❌ Failed to ensure profile columns:', err.message);
 }
-initializeTables();
+
+// ============================================================
+// ✅ ADD THIS NEW CODE HERE
+// ============================================================
+try {
+  const [promotedCol] = await db.query("SHOW COLUMNS FROM users LIKE 'promoted_to_grade'");
+  if (promotedCol.length === 0) {
+    await db.query("ALTER TABLE users ADD COLUMN promoted_to_grade INT DEFAULT NULL");
+    console.log('✅ Added promoted_to_grade column to users');
+  } else {
+    console.log('✅ promoted_to_grade column already exists in users');
+  }
+
+  const [statusCol] = await db.query("SHOW COLUMNS FROM users LIKE 'promotion_status'");
+  if (statusCol.length === 0) {
+    await db.query("ALTER TABLE users ADD COLUMN promotion_status ENUM('pending','approved','rejected') DEFAULT NULL");
+    console.log('✅ Added promotion_status column to users');
+  } else {
+    console.log('✅ promotion_status column already exists in users');
+  }
+
+  const [avgCol] = await db.query("SHOW COLUMNS FROM users LIKE 'promotion_avg_score'");
+  if (avgCol.length === 0) {
+    await db.query("ALTER TABLE users ADD COLUMN promotion_avg_score DECIMAL(5,2) DEFAULT NULL");
+    console.log('✅ Added promotion_avg_score column to users');
+  } else {
+    console.log('✅ promotion_avg_score column already exists in users');
+  }
+
+  const [dateCol] = await db.query("SHOW COLUMNS FROM users LIKE 'promotion_date'");
+  if (dateCol.length === 0) {
+    await db.query("ALTER TABLE users ADD COLUMN promotion_date TIMESTAMP DEFAULT NULL");
+    console.log('✅ Added promotion_date column to users');
+  } else {
+    console.log('✅ promotion_date column already exists in users');
+  }
+} catch (err) {
+  console.error('❌ Failed to ensure promotion columns:', err.message);
+}
+
+console.log('✅ admin user verified');
 
 // =====================
 // ROUTES (external)
