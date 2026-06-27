@@ -464,6 +464,7 @@ exports.getGradeReportHistory = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
+    // ✅ Fetch attempts with subject grade
     const [attempts] = await db.query(
       `SELECT qa.*, s.grade as subject_grade, s.name as subject_name, qt.name as quiz_name
        FROM quiz_attempts qa
@@ -474,46 +475,64 @@ exports.getGradeReportHistory = async (req, res) => {
       [studentId]
     );
 
-    if (attempts.length === 0) {
-      return res.json({ history: [] });
+    let history = [];
+
+    if (attempts.length > 0) {
+      // ✅ Group attempts by subject_grade
+      const groupedByGrade = {};
+      attempts.forEach(a => {
+        const grade = a.subject_grade;
+        if (!groupedByGrade[grade]) groupedByGrade[grade] = [];
+        groupedByGrade[grade].push(a);
+      });
+
+      history = Object.keys(groupedByGrade).map(grade => {
+        const gradeAttempts = groupedByGrade[grade];
+        let totalScore = 0;
+        const subjects = {};
+        gradeAttempts.forEach(a => {
+          const subject = a.subject_name;
+          if (!subjects[subject]) subjects[subject] = { total: 0, count: 0 };
+          const score = (a.score / a.total_questions) * 100;
+          subjects[subject].total += score;
+          subjects[subject].count++;
+          totalScore += score;
+        });
+        const overallAvg = Math.round(totalScore / gradeAttempts.length);
+        const subjectAverages = {};
+        Object.keys(subjects).forEach(sub => {
+          subjectAverages[sub] = Math.round(subjects[sub].total / subjects[sub].count);
+        });
+        return {
+          grade: parseInt(grade),
+          total_quizzes: gradeAttempts.length,
+          overall_avg: overallAvg,
+          subjects: subjectAverages,
+          first_attempt: new Date(Math.min(...gradeAttempts.map(a => new Date(a.created_at)))).toISOString(),
+          last_attempt: new Date(Math.max(...gradeAttempts.map(a => new Date(a.created_at)))).toISOString(),
+        };
+      });
+    } else {
+      // ✅ NEW: No attempts – fallback to grade_reports (promotion history)
+      const [reports] = await db.query(
+        `SELECT grade, avg_score, created_at 
+         FROM grade_reports 
+         WHERE student_id = ?
+         ORDER BY grade ASC`,
+        [studentId]
+      );
+      history = reports.map(r => ({
+        grade: r.grade,
+        total_quizzes: 0,
+        overall_avg: Math.round(r.avg_score),
+        subjects: {},
+        first_attempt: r.created_at,
+        last_attempt: r.created_at,
+        is_promotion_report: true,
+      }));
     }
 
-    // Group attempts by subject_grade
-    const groupedByGrade = {};
-    attempts.forEach(a => {
-      const grade = a.subject_grade;
-      if (!groupedByGrade[grade]) groupedByGrade[grade] = [];
-      groupedByGrade[grade].push(a);
-    });
-
-    const history = Object.keys(groupedByGrade).map(grade => {
-      const gradeAttempts = groupedByGrade[grade];
-      let totalScore = 0;
-      const subjects = {};
-      gradeAttempts.forEach(a => {
-        const subject = a.subject_name;
-        if (!subjects[subject]) subjects[subject] = { total: 0, count: 0 };
-        const score = (a.score / a.total_questions) * 100;
-        subjects[subject].total += score;
-        subjects[subject].count++;
-        totalScore += score;
-      });
-      const overallAvg = Math.round(totalScore / gradeAttempts.length);
-      const subjectAverages = {};
-      Object.keys(subjects).forEach(sub => {
-        subjectAverages[sub] = Math.round(subjects[sub].total / subjects[sub].count);
-      });
-      return {
-        grade: parseInt(grade),
-        total_quizzes: gradeAttempts.length,
-        overall_avg: overallAvg,
-        subjects: subjectAverages,
-        first_attempt: new Date(Math.min(...gradeAttempts.map(a => new Date(a.created_at)))).toISOString(),
-        last_attempt: new Date(Math.max(...gradeAttempts.map(a => new Date(a.created_at)))).toISOString(),
-      };
-    });
-
-    // Sort by grade ascending (8,9,10...)
+    // Sort by grade ascending (e.g., 8,9,10...)
     history.sort((a, b) => a.grade - b.grade);
 
     res.json({ history });
