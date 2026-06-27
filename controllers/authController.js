@@ -204,16 +204,37 @@ exports.getStaffList = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    // ✅ Use parameterized query with '?' placeholder (no double quotes)
     const [rows] = await db.query(
       'SELECT id, username, role, permissions, created_at FROM users WHERE role = ? ORDER BY created_at DESC',
       ['staff']
     );
 
-    const staff = rows.map(row => ({
-      ...row,
-      permissions: row.permissions ? JSON.parse(row.permissions) : []
-    }));
+    const staff = rows.map(row => {
+      let perms = [];
+      if (row.permissions) {
+        try {
+          const parsed = JSON.parse(row.permissions);
+          if (Array.isArray(parsed)) {
+            perms = parsed;
+          } else if (typeof parsed === 'string') {
+            perms = [parsed];
+          }
+        } catch (e) {
+          // Not valid JSON – treat as plain string
+          if (typeof row.permissions === 'string') {
+            if (row.permissions.includes(',')) {
+              perms = row.permissions.split(',').map(s => s.trim());
+            } else {
+              perms = [row.permissions.trim()];
+            }
+          }
+        }
+      }
+      return {
+        ...row,
+        permissions: perms
+      };
+    });
     res.json(staff);
   } catch (err) {
     console.error('❌ Get staff list error:', err);
@@ -235,9 +256,10 @@ exports.updateStaffPermissions = async (req, res) => {
       return res.status(400).json({ message: 'Permissions must be an array' });
     }
 
+    // ✅ Use parameterized query – no double quotes
     await db.query(
-      'UPDATE users SET permissions = ? WHERE id = ? AND role = "staff"',
-      [JSON.stringify(permissions), id]
+      'UPDATE users SET permissions = ? WHERE id = ? AND role = ?',
+      [JSON.stringify(permissions), id, 'staff']
     );
 
     res.json({ message: 'Permissions updated successfully' });
