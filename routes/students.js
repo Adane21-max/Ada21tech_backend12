@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, isAdmin } = require('../middleware/authMiddleware');
+const { authenticate, hasPermission } = require('../middleware/authMiddleware');
 const {
   getAllStudents,
   approveStudent,
