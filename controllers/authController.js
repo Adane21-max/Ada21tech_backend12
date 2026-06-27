@@ -83,9 +83,10 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Username and password required' });
     }
 
-    // ✅ Include created_at in the SELECT
+    // ✅ Include permissions in the SELECT
     const [rows] = await db.query(
-      'SELECT id, username, password, role, grade, status, created_at FROM users WHERE username = ?',
+      `SELECT id, username, password, role, grade, status, created_at, permissions 
+       FROM users WHERE username = ?`,
       [username]
     );
 
@@ -108,12 +109,17 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: 'Your account has been rejected. Please contact support.' });
     }
 
+    // ✅ Parse permissions (JSON array or empty array)
+    const permissions = user.permissions ? JSON.parse(user.permissions) : [];
+
+    // ✅ Include permissions in JWT token
     const token = jwt.sign(
       {
         id: user.id,
         username: user.username,
         role: user.role,
-        grade: user.grade
+        grade: user.grade,
+        permissions: permissions   // ✅ add this
       },
       process.env.JWT_SECRET || 'ada21_secret_key',
       { expiresIn: '7d' }
@@ -129,7 +135,8 @@ exports.login = async (req, res) => {
         role: user.role,
         grade: user.grade,
         status: user.status,
-        created_at: user.created_at  // ✅ Include registration date
+        created_at: user.created_at,
+        permissions: permissions   // ✅ add this
       }
     });
   } catch (error) {
