@@ -204,7 +204,7 @@ exports.getStaffList = async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    // ✅ CORRECTED: Use parameterized query with '?' placeholder
+    // ✅ Use parameterized query with '?' placeholder (no double quotes)
     const [rows] = await db.query(
       'SELECT id, username, role, permissions, created_at FROM users WHERE role = ? ORDER BY created_at DESC',
       ['staff']
