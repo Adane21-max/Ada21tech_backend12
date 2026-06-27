@@ -385,7 +385,7 @@ exports.getGradeReport = async (req, res) => {
   }
 };
 
-// Admin: promote a student (UPDATED with better error handling)
+// Admin: promote a student (UPDATED with level reset)
 exports.promoteStudent = async (req, res) => {
   let connection;
   try {
@@ -395,8 +395,8 @@ exports.promoteStudent = async (req, res) => {
 
     if (!student_id || !promoted_to_grade) {
       console.warn('Missing required fields:', { student_id, promoted_to_grade });
-      return res.status(400).json({ 
-        message: 'Missing required fields: student_id and promoted_to_grade are required' 
+      return res.status(400).json({
+        message: 'Missing required fields: student_id and promoted_to_grade are required'
       });
     }
 
@@ -411,19 +411,28 @@ exports.promoteStudent = async (req, res) => {
     await connection.beginTransaction();
 
     try {
-      // Update user
+      // 1. Update user: grade, promotion metadata, and reset current_level = 1
       await connection.query(
-  `UPDATE users SET 
-   grade = ?,                      
-   promoted_to_grade = ?, 
-   promotion_status = 'approved',
-   promotion_avg_score = ?,
-   promotion_date = NOW()
-   WHERE id = ?`,
-  [promoted_to_grade, promoted_to_grade, avg_score || null, student_id]
-);
+        `UPDATE users SET 
+         grade = ?,
+         promoted_to_grade = ?,
+         promotion_status = 'approved',
+         promotion_avg_score = ?,
+         promotion_date = NOW(),
+         current_level = 1                    -- ✅ Reset global level to 1
+         WHERE id = ?`,
+        [promoted_to_grade, promoted_to_grade, avg_score || null, student_id]
+      );
 
-      // Save report
+      // 2. Reset all subject levels to 1 for this student
+      await connection.query(
+        `UPDATE student_subject_level 
+         SET level = 1 
+         WHERE student_id = ?`,
+        [student_id]
+      );
+
+      // 3. Insert grade report
       await connection.query(
         `INSERT INTO grade_reports (student_id, grade, avg_score, promoted)
          VALUES (?, ?, ?, ?)`,
@@ -433,8 +442,8 @@ exports.promoteStudent = async (req, res) => {
       await connection.commit();
       connection.release();
 
-      res.json({ 
-        message: `Student promoted to Grade ${promoted_to_grade} successfully`,
+      res.json({
+        message: `Student promoted to Grade ${promoted_to_grade} successfully (level reset to 1)`,
         student_id,
         promoted_to_grade,
         avg_score: avg_score || 0
@@ -446,10 +455,10 @@ exports.promoteStudent = async (req, res) => {
     }
   } catch (err) {
     console.error('PROMOTE STUDENT ERROR:', err);
-    res.status(500).json({ 
-      message: 'Server error', 
+    res.status(500).json({
+      message: 'Server error',
       error: err.message,
-      stack: err.stack 
+      stack: err.stack
     });
   }
 };
