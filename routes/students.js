@@ -12,9 +12,8 @@ const {
   getMyLevels,
   getCurrentLevel,
   getGradeReport,
-  getGradeReportHistory,   // ✅ NEW: history endpoint
+  getGradeReportHistory,
   promoteStudent,
-  // ✅ NEW profile functions
   getProfile,
   updateProfile,
   changePassword
@@ -25,26 +24,24 @@ router.get('/leaderboard', authenticate, getLeaderboard);
 router.get('/my-levels', authenticate, getMyLevels);
 router.get('/current-level', authenticate, getCurrentLevel);
 
-// ✅ Profile routes (authenticated student)
+// Profile routes
 router.get('/profile', authenticate, getProfile);
 router.put('/profile', authenticate, updateProfile);
 router.put('/password', authenticate, changePassword);
 
-// ✅ Grade report for a student (student can view their own; admin can view any)
+// Grade report for a student
 router.get('/:id/grade-report', authenticate, getGradeReport);
-
-// ✅ NEW: Grade report history (grouped by subject grade)
 router.get('/:id/grade-history', authenticate, getGradeReportHistory);
 
-// Admin‑only routes
-router.get('/', authenticate, isAdmin, getAllStudents);
-router.get('/with-quiz-types', authenticate, isAdmin, getStudentsWithQuizTypeCount);
-router.put('/:id/approve', authenticate, isAdmin, approveStudent);
-router.put('/:id/reject', authenticate, isAdmin, rejectStudent);
-router.put('/:id/status', authenticate, isAdmin, updateStudentStatus);
-router.delete('/:id', authenticate, isAdmin, deleteStudent);
+// ✅ Admin/Staff routes with permission checks
+router.get('/', authenticate, hasPermission('manage_users'), getAllStudents);
+router.get('/with-quiz-types', authenticate, hasPermission('manage_users'), getStudentsWithQuizTypeCount);
+router.put('/:id/approve', authenticate, hasPermission('manage_users'), approveStudent);
+router.put('/:id/reject', authenticate, hasPermission('manage_users'), rejectStudent);
+router.put('/:id/status', authenticate, hasPermission('manage_users'), updateStudentStatus);
+router.delete('/:id', authenticate, hasPermission('manage_users'), deleteStudent);
 
-// ✅ Admin: promote a student
-router.post('/admin/promote-student', authenticate, isAdmin, promoteStudent);
+// ✅ Promote student – also requires manage_users
+router.post('/admin/promote-student', authenticate, hasPermission('manage_users'), promoteStudent);
 
 module.exports = router;
