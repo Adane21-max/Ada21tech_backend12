@@ -141,3 +141,93 @@ exports.login = async (req, res) => {
     res.status(500).json({ message: 'Server error', detail: error.message });
   }
 };
+
+// ============================================================
+// Staff Management Functions
+// ============================================================
+
+// Register a new staff user (admin only)
+exports.registerStaff = async (req, res) => {
+  try {
+    // Only admins (or users with manage_staff permission) can create staff
+    if (req.user.role !== 'admin' && !req.user.permissions?.includes('manage_staff')) {
+      return res.status(403).json({ message: 'Access denied. Only admins or managers can create staff.' });
+    }
+
+    const { username, password, permissions } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ message: 'Username and password are required' });
+    }
+
+    // Check if username already exists
+    const [existing] = await db.query('SELECT id FROM users WHERE username = ?', [username]);
+    if (existing.length > 0) {
+      return res.status(400).json({ message: 'Username already taken' });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Insert staff with role = 'staff' and permissions as JSON
+    await db.query(
+      'INSERT INTO users (username, password, role, permissions) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, 'staff', JSON.stringify(permissions || [])]
+    );
+
+    console.log(`✅ Staff created: ${username}`);
+    res.status(201).json({ message: 'Staff account created successfully', username });
+  } catch (err) {
+    console.error('❌ Register staff error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get all staff users (admin or manager only)
+exports.getStaffList = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && !req.user.permissions?.includes('manage_staff')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const [rows] = await db.query(
+      'SELECT id, username, role, permissions, created_at FROM users WHERE role = "staff" ORDER BY created_at DESC'
+    );
+    // Parse permissions JSON for each row
+    const staff = rows.map(row => ({
+      ...row,
+      permissions: row.permissions ? JSON.parse(row.permissions) : []
+    }));
+    res.json(staff);
+  } catch (err) {
+    console.error('❌ Get staff list error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Update staff permissions (admin or manager only)
+exports.updateStaffPermissions = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && !req.user.permissions?.includes('manage_staff')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { id } = req.params;
+    const { permissions } = req.body;
+
+    if (!permissions || !Array.isArray(permissions)) {
+      return res.status(400).json({ message: 'Permissions must be an array' });
+    }
+
+    await db.query(
+      'UPDATE users SET permissions = ? WHERE id = ? AND role = "staff"',
+      [JSON.stringify(permissions), id]
+    );
+
+    res.json({ message: 'Permissions updated successfully' });
+  } catch (err) {
+    console.error('❌ Update staff permissions error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
