@@ -272,3 +272,89 @@ exports.updateStaffPermissions = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+// ============================================================
+// Delete a staff user (admin only)
+// ============================================================
+exports.deleteStaff = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && !req.user.permissions?.includes('manage_staff')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { id } = req.params;
+
+    // Prevent deleting yourself or other admins
+    const [user] = await db.query('SELECT id, role FROM users WHERE id = ?', [id]);
+    if (user.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    if (user[0].role === 'admin') {
+      return res.status(403).json({ message: 'Cannot delete an admin account' });
+    }
+    if (parseInt(id) === req.user.id) {
+      return res.status(403).json({ message: 'You cannot delete your own account' });
+    }
+
+    await db.query('DELETE FROM users WHERE id = ?', [id]);
+    res.json({ message: 'Staff deleted successfully' });
+  } catch (err) {
+    console.error('❌ Delete staff error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ============================================================
+// Update staff details (username, password) – admin only
+// ============================================================
+exports.updateStaff = async (req, res) => {
+  try {
+    if (req.user.role !== 'admin' && !req.user.permissions?.includes('manage_staff')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { id } = req.params;
+    const { username, password } = req.body;
+
+    // Check user exists and is staff (not admin)
+    const [user] = await db.query('SELECT id, role FROM users WHERE id = ?', [id]);
+    if (user.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    if (user[0].role === 'admin') {
+      return res.status(403).json({ message: 'Cannot edit an admin account' });
+    }
+
+    // Build update query dynamically
+    let updates = [];
+    let values = [];
+
+    if (username) {
+      // Check if username is already taken (by another user)
+      const [existing] = await db.query('SELECT id FROM users WHERE username = ? AND id != ?', [username, id]);
+      if (existing.length > 0) {
+        return res.status(400).json({ message: 'Username already taken' });
+      }
+      updates.push('username = ?');
+      values.push(username);
+    }
+
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      updates.push('password = ?');
+      values.push(hashedPassword);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ message: 'Nothing to update' });
+    }
+
+    values.push(id);
+    await db.query(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, values);
+
+    res.json({ message: 'Staff updated successfully' });
+  } catch (err) {
+    console.error('❌ Update staff error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
