@@ -65,7 +65,8 @@ async function initializeTables() {
       } else {
         console.log(`✅ Updated ${updatedCount} subject(s) with correct grades.`);
       }
-    } catch (err) {
+    } 
+    catch (err) {
       console.error('❌ Failed to auto-update subjects.grade:', err.message);
     }
     
