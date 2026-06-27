@@ -36,19 +36,19 @@ const isAdmin = (req, res, next) => {
 // ✅ Permission-based Middleware (for staff)
 // ============================================================
 
-// Check if user has a specific permission (admins always pass)
+// Check if user has a specific permission (admins and staff always pass)
 const hasPermission = (permission) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
 
-    // Admins have full access to everything
-    if (req.user.role === 'admin') {
+    // ✅ Staff and Admin both have full access
+    if (req.user.role === 'admin' || req.user.role === 'staff') {
       return next();
     }
 
-    // Check if user has the required permission
+    // Check if user has the required permission (only for other roles)
     const permissions = req.user.permissions || [];
     if (permissions.includes(permission)) {
       return next();
