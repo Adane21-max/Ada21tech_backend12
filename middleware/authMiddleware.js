@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 // ============================================================
 
 // Verify JWT token and attach user to req
-exports.authenticate = (req, res, next) => {
+const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ message: 'No token provided' });
@@ -22,7 +22,7 @@ exports.authenticate = (req, res, next) => {
 };
 
 // Check if user is an admin (full access)
-exports.isAdmin = (req, res, next) => {
+const isAdmin = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ message: 'Not authenticated' });
   }
@@ -33,7 +33,7 @@ exports.isAdmin = (req, res, next) => {
 };
 
 // ============================================================
-// ✅ NEW: Permission-based Middleware (for staff)
+// ✅ Permission-based Middleware (for staff)
 // ============================================================
 
 // Check if user has a specific permission (admins always pass)
