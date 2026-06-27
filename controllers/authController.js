@@ -107,24 +107,22 @@ exports.login = async (req, res) => {
       return res.status(403).json({ message: 'Your account has been rejected. Please contact support.' });
     }
 
-    // ✅ Robust permission handling – works whether it's an array or JSON string
+    // ✅ PERMISSIONS: handle both JSON array (from MySQL2) and JSON string (fallback)
     let permissions = [];
     if (user.permissions) {
       if (Array.isArray(user.permissions)) {
-        // Already parsed by MySQL2
         permissions = user.permissions;
       } else if (typeof user.permissions === 'string') {
         try {
           const parsed = JSON.parse(user.permissions);
           if (Array.isArray(parsed)) permissions = parsed;
         } catch (e) {
-          // Invalid JSON – treat as empty
+          // invalid – ignore
         }
       }
     }
 
-    // Debug log (optional – you can remove after testing)
-    console.log(`🔐 Permissions for ${username}:`, permissions);
+    console.log(`🔐 Login permissions for ${username}:`, permissions);
 
     const token = jwt.sign(
       {
