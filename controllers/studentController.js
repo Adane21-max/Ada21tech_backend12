@@ -339,7 +339,10 @@ exports.getGradeReport = async (req, res) => {
        ORDER BY qa.created_at DESC`,
       [studentId, filterGrade]
     );
-
+     console.log('📊 getGradeReport - studentId:', studentId);
+    console.log('📊 filterGrade:', filterGrade);
+    console.log('📊 attempts found:', attempts.length);
+    
     // Build report
     const report = {
       student_id: studentId,
