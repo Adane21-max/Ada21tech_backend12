@@ -280,6 +280,34 @@ try {
 } catch (err) {
   console.error('❌ Failed to ensure promotion columns:', err.message);
 }
+        // ============================================================
+    // Ensure staff columns exist (permissions, role)
+    // ============================================================
+    try {
+      // Add permissions column if missing
+      const [permCol] = await db.query("SHOW COLUMNS FROM users LIKE 'permissions'");
+      if (permCol.length === 0) {
+        await db.query("ALTER TABLE users ADD COLUMN permissions JSON DEFAULT NULL");
+        console.log('✅ Added permissions column to users');
+      } else {
+        console.log('✅ permissions column already exists in users');
+      }
+
+      // Ensure role enum includes 'staff'
+      const [roleCol] = await db.query("SHOW COLUMNS FROM users LIKE 'role'");
+      if (roleCol.length > 0) {
+        const roleType = roleCol[0].Type;
+        // Check if 'staff' is already in the enum
+        if (!roleType.includes("'staff'")) {
+          await db.query("ALTER TABLE users MODIFY role ENUM('admin', 'student', 'staff') DEFAULT 'student'");
+          console.log('✅ Updated role enum to include staff');
+        } else {
+          console.log('✅ role already includes staff');
+        }
+      }
+    } catch (err) {
+      console.error('❌ Failed to ensure staff columns:', err.message);
+    }
 
 console.log('✅ admin user verified');
 
