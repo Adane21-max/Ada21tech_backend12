@@ -310,6 +310,31 @@ try {
     }
 
 console.log('✅ admin user verified');
+        // ============================================================
+    // Ensure staff columns exist (permissions, role)
+    // ============================================================
+    try {
+      const [permCol] = await db.query("SHOW COLUMNS FROM users LIKE 'permissions'");
+      if (permCol.length === 0) {
+        await db.query("ALTER TABLE users ADD COLUMN permissions JSON DEFAULT NULL");
+        console.log('✅ Added permissions column to users');
+      } else {
+        console.log('✅ permissions column already exists in users');
+      }
+
+      const [roleCol] = await db.query("SHOW COLUMNS FROM users LIKE 'role'");
+      if (roleCol.length > 0) {
+        const roleType = roleCol[0].Type;
+        if (!roleType.includes("'staff'")) {
+          await db.query("ALTER TABLE users MODIFY role ENUM('admin', 'student', 'staff') DEFAULT 'student'");
+          console.log('✅ Updated role enum to include staff');
+        } else {
+          console.log('✅ role already includes staff');
+        }
+      }
+    } catch (err) {
+      console.error('❌ Failed to ensure staff columns:', err.message);
+    }
 
   } catch (err) {
     console.error('❌ Table initialization error:', err.message);
