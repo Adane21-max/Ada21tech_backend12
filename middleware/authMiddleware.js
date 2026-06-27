@@ -4,7 +4,6 @@ const jwt = require('jsonwebtoken');
 // Authentication Middleware
 // ============================================================
 
-// Verify JWT token and attach user to req
 const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -21,46 +20,36 @@ const authenticate = (req, res, next) => {
   }
 };
 
-// Check if user is an admin (full access)
+// ✅ Allow BOTH admin and staff
 const isAdmin = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({ message: 'Not authenticated' });
   }
-  if (req.user.role !== 'admin') {
+  if (req.user.role !== 'admin' && req.user.role !== 'staff') {
     return res.status(403).json({ message: 'Admin access required' });
   }
   next();
 };
 
-// ============================================================
-// ✅ Permission-based Middleware (for staff)
-// ============================================================
-
-// Check if user has a specific permission (admins and staff always pass)
+// Staff and Admin bypass permission checks
 const hasPermission = (permission) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Not authenticated' });
     }
-
-    // ✅ Staff and Admin both have full access
     if (req.user.role === 'admin' || req.user.role === 'staff') {
       return next();
     }
-
-    // Check if user has the required permission (only for other roles)
     const permissions = req.user.permissions || [];
     if (permissions.includes(permission)) {
       return next();
     }
-
     return res.status(403).json({
       message: `Insufficient permissions. Requires "${permission}".`
     });
   };
 };
 
-// Export all middleware
 module.exports = {
   authenticate,
   isAdmin,
