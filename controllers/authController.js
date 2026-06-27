@@ -83,7 +83,6 @@ exports.login = async (req, res) => {
       return res.status(400).json({ message: 'Username and password required' });
     }
 
-    // ✅ Include permissions in the SELECT
     const [rows] = await db.query(
       `SELECT id, username, password, role, grade, status, created_at, permissions 
        FROM users WHERE username = ?`,
@@ -103,23 +102,30 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid password' });
     }
 
-    // Block rejected students
     if (user.role === 'student' && user.status === 'rejected') {
       console.warn('Rejected student login attempt:', username);
       return res.status(403).json({ message: 'Your account has been rejected. Please contact support.' });
     }
 
-    // ✅ Parse permissions (JSON array or empty array)
-    const permissions = user.permissions ? JSON.parse(user.permissions) : [];
+    // ✅ SAFELY parse permissions
+    let permissions = [];
+    if (user.permissions) {
+      try {
+        const parsed = JSON.parse(user.permissions);
+        if (Array.isArray(parsed)) permissions = parsed;
+      } catch (e) {
+        // Invalid JSON – treat as empty array
+        permissions = [];
+      }
+    }
 
-    // ✅ Include permissions in JWT token
     const token = jwt.sign(
       {
         id: user.id,
         username: user.username,
         role: user.role,
         grade: user.grade,
-        permissions: permissions   // ✅ add this
+        permissions: permissions
       },
       process.env.JWT_SECRET || 'ada21_secret_key',
       { expiresIn: '7d' }
@@ -136,7 +142,7 @@ exports.login = async (req, res) => {
         grade: user.grade,
         status: user.status,
         created_at: user.created_at,
-        permissions: permissions   // ✅ add this
+        permissions: permissions
       }
     });
   } catch (error) {
