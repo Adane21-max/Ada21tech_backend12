@@ -351,8 +351,8 @@ exports.getGradeReport = async (req, res) => {
       middle_name: student.middle_name,
       last_name: student.last_name,
       created_at: student.created_at,
-      current_grade: student.grade,           // Student's actual current grade
-      report_grade: filterGrade,              // The grade this report covers
+      current_grade: filterGrade,             // ✅ The grade being viewed
+      next_grade: filterGrade + 1,            // ✅ The next grade from the viewed grade
       total_quizzes: attempts.length,
       subjects: {},
       overall_avg: 0
