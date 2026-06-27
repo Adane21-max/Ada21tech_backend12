@@ -3,9 +3,11 @@ const router = express.Router();
 const {
   register,
   login,
-  registerStaff,           // ✅ NEW
-  getStaffList,            // ✅ NEW
-  updateStaffPermissions   // ✅ NEW
+  registerStaff,
+  getStaffList,
+  updateStaffPermissions,
+  deleteStaff,       // ✅ NEW
+  updateStaff        // ✅ NEW
 } = require('../controllers/authController');
 const { authenticate, hasPermission } = require('../middleware/authMiddleware');
 
@@ -40,6 +42,22 @@ router.put(
   authenticate,
   hasPermission('manage_staff'),
   updateStaffPermissions
+);
+
+// ✅ Delete a staff user
+router.delete(
+  '/staff/:id',
+  authenticate,
+  hasPermission('manage_staff'),
+  deleteStaff
+);
+
+// ✅ Update staff details (username, password)
+router.put(
+  '/staff/:id',
+  authenticate,
+  hasPermission('manage_staff'),
+  updateStaff
 );
 
 module.exports = router;
