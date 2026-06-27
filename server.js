@@ -27,6 +27,48 @@ async function initializeTables() {
     await db.query(`CREATE TABLE IF NOT EXISTS subjects (id INT AUTO_INCREMENT PRIMARY KEY, grade INT NOT NULL, name VARCHAR(100) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
     console.log('✅ subjects table ready');
 
+        // ✅ Auto-update subjects.grade based on subject name
+    try {
+      const [subjects] = await db.query('SELECT id, name, grade FROM subjects');
+      let updatedCount = 0;
+
+      for (const subject of subjects) {
+        let grade = null;
+        const name = subject.name || '';
+
+        // Try to extract grade from name using common patterns
+        const match = name.match(/\b(6|7|8|9|10|11|12)\b/);
+        if (match) {
+          grade = parseInt(match[1]);
+        } else if (name.toLowerCase().includes('grade 6')) grade = 6;
+        else if (name.toLowerCase().includes('grade 7')) grade = 7;
+        else if (name.toLowerCase().includes('grade 8')) grade = 8;
+        else if (name.toLowerCase().includes('grade 9')) grade = 9;
+        else if (name.toLowerCase().includes('grade 10')) grade = 10;
+        else if (name.toLowerCase().includes('grade 11')) grade = 11;
+        else if (name.toLowerCase().includes('grade 12')) grade = 12;
+
+        // Default for subjects without a number in the name
+        if (grade === null && (name === 'Global' || name === 'English' || name === 'Global (upgrades)')) {
+          grade = 6; // adjust based on your data
+        }
+
+        if (grade !== null && subject.grade !== grade) {
+          await db.query('UPDATE subjects SET grade = ? WHERE id = ?', [grade, subject.id]);
+          updatedCount++;
+          console.log(`📝 Updated subject "${name}" to grade ${grade}`);
+        }
+      }
+
+      if (updatedCount === 0) {
+        console.log('✅ All subjects already have correct grades.');
+      } else {
+        console.log(`✅ Updated ${updatedCount} subject(s) with correct grades.`);
+      }
+    } catch (err) {
+      console.error('❌ Failed to auto-update subjects.grade:', err.message);
+    }
+    
     // Question types table
     await db.query(`CREATE TABLE IF NOT EXISTS question_types (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) NOT NULL, grade INT NOT NULL, subject_id INT NOT NULL, level INT DEFAULT 1 NOT NULL, total_time INT DEFAULT NULL, is_visible BOOLEAN DEFAULT TRUE, start_date DATETIME NULL, end_date DATETIME NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE)`);
     console.log('✅ question_types table ready');
