@@ -7,8 +7,6 @@ exports.register = async (req, res) => {
   console.log('📝 Register attempt:', {
     username: req.body.username,
     grade: req.body.grade,
-    first_name: req.body.first_name,
-    last_name: req.body.last_name
   });
   try {
     const {
@@ -20,11 +18,11 @@ exports.register = async (req, res) => {
       last_name
     } = req.body;
 
-    // Validate required fields
-    if (!username || !password || !grade || !first_name || !last_name) {
+    // ✅ Only require username, password, and grade
+    if (!username || !password || !grade) {
       console.warn('Missing required fields');
       return res.status(400).json({
-        message: 'Username, password, grade, first name, and last name are required'
+        message: 'Username, password, and grade are required'
       });
     }
 
@@ -40,10 +38,15 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: 'Username already taken, use another username' });
     }
 
+    // ✅ Auto-fill names if not provided
+    const firstName = first_name || username;
+    const lastName = last_name || username;
+    const middleName = middle_name || null;
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Insert with name columns
+    // Insert with auto-filled names
     await db.query(
       `INSERT INTO users 
        (username, password, role, grade, status, first_name, middle_name, last_name) 
@@ -54,9 +57,9 @@ exports.register = async (req, res) => {
         'student',
         grade,
         'pending',
-        first_name,
-        middle_name || null,   // optional
-        last_name
+        firstName,
+        middleName,
+        lastName
       ]
     );
 
@@ -71,7 +74,6 @@ exports.register = async (req, res) => {
     res.status(500).json({ message: 'Server error', detail: error.message });
   }
 };
-
 // --- LOGIN ---
 exports.login = async (req, res) => {
   console.log('🔐 Login attempt:', req.body.username);
