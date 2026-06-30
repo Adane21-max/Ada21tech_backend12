@@ -1,15 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, isAdmin } = require('../middleware/authMiddleware'); // ✅ ADD isAdmin
+const { authenticate, isAdmin } = require('../middleware/authMiddleware');
 const {
   getActiveCompetition,
   submitCompetition,
   getCompetitionLeaderboard,
   getMonthlyWinners,
-  adminGetCompetitions,      // ✅ ADD
-  adminCreateCompetition,    // ✅ ADD
-  adminUpdateCompetition,    // ✅ ADD
-  adminDeleteCompetition     // ✅ ADD
+  adminGetCompetitions,
+  adminCreateCompetition,
+  adminUpdateCompetition,
+  adminDeleteCompetition
 } = require('../controllers/competitionController');
 
 // ─── Student Routes ──────────────────────────────────────────────
