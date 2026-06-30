@@ -179,6 +179,79 @@ await db.query(`
   )
 `);
 console.log('✅ grade_reports table ready');
+    // ============================================================
+    // Competition Tables
+    // ============================================================
+    try {
+      // Competitions table
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS competitions (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          description TEXT,
+          grade INT NOT NULL,
+          subject_id INT NOT NULL,
+          level INT DEFAULT 1,
+          start_time DATETIME NOT NULL,
+          end_time DATETIME NOT NULL,
+          total_questions INT DEFAULT 10,
+          is_active BOOLEAN DEFAULT TRUE,
+          month_year VARCHAR(7) NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+        )
+      `);
+      console.log('✅ competitions table ready');
+
+      // Competition attempts table
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS competition_attempts (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          competition_id INT NOT NULL,
+          student_id INT NOT NULL,
+          score INT DEFAULT 0,
+          total_questions INT DEFAULT 0,
+          correct_count INT DEFAULT 0,
+          wrong_count INT DEFAULT 0,
+          time_taken INT DEFAULT 0,
+          completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          is_winner BOOLEAN DEFAULT FALSE,
+          FOREIGN KEY (competition_id) REFERENCES competitions(id) ON DELETE CASCADE,
+          FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
+          UNIQUE KEY unique_competition_student (competition_id, student_id)
+        )
+      `);
+      console.log('✅ competition_attempts table ready');
+
+      // Competition answers table
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS competition_answers (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          attempt_id INT NOT NULL,
+          question_id INT NOT NULL,
+          selected_answer CHAR(1),
+          is_correct BOOLEAN DEFAULT FALSE,
+          FOREIGN KEY (attempt_id) REFERENCES competition_attempts(id) ON DELETE CASCADE
+        )
+      `);
+      console.log('✅ competition_answers table ready');
+    // Insert default competition if none exists
+const [existingCompetition] = await db.query('SELECT id FROM competitions LIMIT 1');
+if (existingCompetition.length === 0) {
+  // Make sure subject_id 1 exists, or use a fallback
+  const [subject] = await db.query('SELECT id FROM subjects LIMIT 1');
+  const subjectId = subject.length > 0 ? subject[0].id : 1;
+  await db.query(`
+    INSERT INTO competitions 
+    (title, description, grade, subject_id, level, start_time, end_time, total_questions, month_year) 
+    VALUES 
+    ('Monthly Challenge', 'Complete this month\'s competition to win a free level upgrade!', 6, ?, 1, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 10, DATE_FORMAT(NOW(), '%Y-%m'))
+  `, [subjectId]);
+  console.log('✅ Default competition inserted.');
+}
+    } catch (err) {
+      console.error('❌ Failed to ensure competition tables:', err.message);
+    }
     
     // 🔧 Ensure payer_name / transaction_ref columns exist in upgrade_requests
     try {
