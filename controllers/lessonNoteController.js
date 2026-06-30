@@ -19,10 +19,15 @@ exports.createLessonNote = async (req, res) => {
   try {
     const { title, content, grade, subject_id, level, activity } = req.body;
 
-    // Validate required fields
-    if (!title || !content || !grade || !subject_id) {
-      return res.status(400).json({ message: 'Missing required fields: title, content, grade, subject_id' });
+    // ✅ Only require title, grade, subject_id – content is optional
+    if (!title || !grade || !subject_id) {
+      return res.status(400).json({ 
+        message: 'Missing required fields: title, grade, and subject_id are required' 
+      });
     }
+
+    // ✅ Allow content to be empty string
+    const noteContent = content || '';
 
     let activityJson = null;
     if (activity && typeof activity === 'object') {
@@ -32,7 +37,7 @@ exports.createLessonNote = async (req, res) => {
     const [result] = await db.query(
       `INSERT INTO lesson_notes (title, content, grade, subject_id, level, activity)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [title, content, grade, subject_id, level || 1, activityJson]
+      [title, noteContent, grade, subject_id, level || 1, activityJson]
     );
 
     res.status(201).json({ message: 'Lesson note created', id: result.insertId });
