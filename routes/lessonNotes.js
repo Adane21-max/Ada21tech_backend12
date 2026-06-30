@@ -7,7 +7,8 @@ const {
   getLessonNoteById,
   updateLessonNote,
   deleteLessonNote,
-  submitActivity
+  submitActivity,
+    bulkCreateLessonNotes
 } = require('../controllers/lessonNoteController');
 
 // Student: get notes (filtered by grade, subject, level)
@@ -20,7 +21,7 @@ router.get('/:id', authenticate, getLessonNoteById);
 router.post('/:id/submit', authenticate, submitActivity);
 
 // Bulk create lesson notes (admin)
-router.post('/bulk', authenticate, isAdmin, lessonNoteController.bulkCreateLessonNotes);
+router.post('/bulk', authenticate, isAdmin, bulkCreateLessonNotes);
 
 // Admin only
 router.post('/', authenticate, isAdmin, createLessonNote);
