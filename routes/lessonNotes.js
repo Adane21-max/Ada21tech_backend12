@@ -19,6 +19,9 @@ router.get('/:id', authenticate, getLessonNoteById);
 // Student: submit activity answer
 router.post('/:id/submit', authenticate, submitActivity);
 
+// Bulk create lesson notes (admin)
+router.post('/bulk', authenticate, isAdmin, lessonNoteController.bulkCreateLessonNotes);
+
 // Admin only
 router.post('/', authenticate, isAdmin, createLessonNote);
 router.put('/:id', authenticate, isAdmin, updateLessonNote);
