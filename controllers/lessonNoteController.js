@@ -146,3 +146,45 @@ exports.submitActivity = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
+// BULK CREATE lesson notes (admin)
+exports.bulkCreateLessonNotes = async (req, res) => {
+  try {
+    const notes = req.body; // should be an array
+
+    if (!Array.isArray(notes) || notes.length === 0) {
+      return res.status(400).json({ message: 'Expected an array of notes' });
+    }
+
+    const insertedIds = [];
+    for (const note of notes) {
+      const { title, content, grade, subject_id, level, activity } = note;
+
+      if (!title || !grade || !subject_id) {
+        return res.status(400).json({
+          message: 'Each note must have title, grade, and subject_id'
+        });
+      }
+
+      const noteContent = content || '';
+      let activityJson = null;
+      if (activity && typeof activity === 'object') {
+        activityJson = JSON.stringify(activity);
+      }
+
+      const [result] = await db.query(
+        `INSERT INTO lesson_notes (title, content, grade, subject_id, level, activity)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [title, noteContent, grade, subject_id, level || 1, activityJson]
+      );
+      insertedIds.push(result.insertId);
+    }
+
+    res.status(201).json({
+      message: `Created ${insertedIds.length} notes`,
+      ids: insertedIds
+    });
+  } catch (error) {
+    console.error('❌ BULK CREATE LESSON NOTES ERROR:', error);
+    res.status(500).json({ message: error.message });
+  }
+};
