@@ -51,7 +51,7 @@ async function checkMonthlyWinners(competitionId) {
   }
 }
 
-// ─── 1. Get Active Competition ──────────────────────────────────
+// ─── 1. Student: Get Active Competition ──────────────────────────
 exports.getActiveCompetition = async (req, res) => {
   try {
     const studentId = req.user.id;
@@ -99,7 +99,7 @@ exports.getActiveCompetition = async (req, res) => {
   }
 };
 
-// ─── 2. Submit Competition ──────────────────────────────────────
+// ─── 2. Student: Submit Competition ──────────────────────────────
 exports.submitCompetition = async (req, res) => {
   try {
     const studentId = req.user.id;
@@ -172,7 +172,7 @@ exports.submitCompetition = async (req, res) => {
   }
 };
 
-// ─── 3. Get Competition Leaderboard ──────────────────────────────
+// ─── 3. Student: Get Competition Leaderboard ──────────────────────
 exports.getCompetitionLeaderboard = async (req, res) => {
   try {
     const { id } = req.params;
@@ -207,7 +207,7 @@ exports.getCompetitionLeaderboard = async (req, res) => {
   }
 };
 
-// ─── 4. Get Monthly Winners ──────────────────────────────────────
+// ─── 4. Student: Get Monthly Winners ──────────────────────────────
 exports.getMonthlyWinners = async (req, res) => {
   try {
     const monthYear = new Date().toISOString().slice(0, 7);
@@ -242,6 +242,88 @@ exports.getMonthlyWinners = async (req, res) => {
     });
   } catch (err) {
     console.error('Get monthly winners error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ─── 5. Admin: Get All Competitions ──────────────────────────────
+exports.adminGetCompetitions = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT c.*, s.name as subject_name,
+        (SELECT COUNT(*) FROM competition_attempts WHERE competition_id = c.id) as total_participants
+       FROM competitions c
+       LEFT JOIN subjects s ON c.subject_id = s.id
+       ORDER BY c.created_at DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Admin get competitions error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ─── 6. Admin: Create Competition ────────────────────────────────
+exports.adminCreateCompetition = async (req, res) => {
+  try {
+    const { title, description, grade, subject_id, level, start_time, end_time, total_questions, is_active, month_year } = req.body;
+
+    if (!title || !grade || !subject_id || !start_time || !end_time) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    const [result] = await db.query(
+      `INSERT INTO competitions 
+       (title, description, grade, subject_id, level, start_time, end_time, total_questions, is_active, month_year)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [title, description || '', grade, subject_id, level || 1, start_time, end_time, total_questions || 10, is_active !== undefined ? is_active : true, month_year || new Date().toISOString().slice(0, 7)]
+    );
+
+    res.status(201).json({ id: result.insertId, message: 'Competition created' });
+  } catch (err) {
+    console.error('Admin create competition error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ─── 7. Admin: Update Competition ────────────────────────────────
+exports.adminUpdateCompetition = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, grade, subject_id, level, start_time, end_time, total_questions, is_active, month_year } = req.body;
+
+    const [result] = await db.query(
+      `UPDATE competitions SET
+       title = ?, description = ?, grade = ?, subject_id = ?, level = ?,
+       start_time = ?, end_time = ?, total_questions = ?, is_active = ?, month_year = ?
+       WHERE id = ?`,
+      [title, description || '', grade, subject_id, level || 1, start_time, end_time, total_questions || 10, is_active !== undefined ? is_active : true, month_year || new Date().toISOString().slice(0, 7), id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Competition not found' });
+    }
+
+    res.json({ message: 'Competition updated' });
+  } catch (err) {
+    console.error('Admin update competition error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ─── 8. Admin: Delete Competition ────────────────────────────────
+exports.adminDeleteCompetition = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [result] = await db.query('DELETE FROM competitions WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Competition not found' });
+    }
+
+    res.json({ message: 'Competition deleted' });
+  } catch (err) {
+    console.error('Admin delete competition error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 };
