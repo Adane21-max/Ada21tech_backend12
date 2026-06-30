@@ -353,6 +353,7 @@ const announcementRoutes = require('./routes/announcements');
 const studentRoutes = require('./routes/students');
 const paymentRoutes = require('./routes/payments');
 const questionTypeRoutes = require('./routes/questionTypes');
+const competitionRoutes = require('./routes/competitions');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectRoutes);
@@ -362,6 +363,7 @@ app.use('/api/announcements', announcementRoutes);
 app.use('/api/students', studentRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/question-types', questionTypeRoutes);
+app.use('/api/competitions', competitionRoutes); 
 
 // Lesson Notes Routes
 const lessonNoteRoutes = require('./routes/lessonNotes');
