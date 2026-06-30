@@ -238,15 +238,23 @@ console.log('✅ grade_reports table ready');
     // Insert default competition if none exists
 const [existingCompetition] = await db.query('SELECT id FROM competitions LIMIT 1');
 if (existingCompetition.length === 0) {
-  // Make sure subject_id 1 exists, or use a fallback
+  // Get any valid subject ID
   const [subject] = await db.query('SELECT id FROM subjects LIMIT 1');
   const subjectId = subject.length > 0 ? subject[0].id : 1;
-  await db.query(`
-    INSERT INTO competitions 
-    (title, description, grade, subject_id, level, start_time, end_time, total_questions, month_year) 
-    VALUES 
-    ('Monthly Challenge', 'Complete this month\'s competition to win a free level upgrade!', 6, ?, 1, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), 10, DATE_FORMAT(NOW(), '%Y-%m'))
-  `, [subjectId]);
+  
+  await db.query(
+    `INSERT INTO competitions 
+     (title, description, grade, subject_id, level, start_time, end_time, total_questions, month_year) 
+     VALUES (?, ?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 30 DAY), ?, DATE_FORMAT(NOW(), '%Y-%m'))`,
+    [
+      'Monthly Challenge',
+      "Complete this month's competition to win a free level upgrade!",
+      6,
+      subjectId,
+      1,
+      10
+    ]
+  );
   console.log('✅ Default competition inserted.');
 }
     } catch (err) {
